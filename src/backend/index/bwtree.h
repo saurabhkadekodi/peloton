@@ -45,11 +45,11 @@ class InternalBWNode {
   uint64_t sibling_id;
   std::vector<std::pair<KeyType, uint64_t>> key_list; // all keys have children
   BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *my_tree; // reference of the tree I belong to
-  node_type_t type;
 
   public:
   InternalBWNode(BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *bwt, uint64_t id);
-  node_type_t get_node_type();
+  node_type_t type;
+  bool insert(uint64_t id, KeyType split_key, KeyType boundary_key);
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
@@ -96,7 +96,7 @@ class SplitIndexDeltaNode {
   SplitIndexDeltaNode(BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *bwt, uint64_t id);
   node_type_t type;
   KeyType split_key, boundary_key;
-  void *split_parent; // can be delta node or internal_bw_node
+  void *next; // can be delta node or internal_bw_node
   uint64_t new_split_node_id;
 };
 
@@ -111,7 +111,7 @@ class DeleteIndexDeltaNode {
   DeleteIndexDeltaNode(BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *bwt, uint64_t id);
   node_type_t type;
   KeyType deleted_key;
-  void *split_parent; // can be delta node or internal_bw_node
+  void *next; // can be delta node or internal_bw_node
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>

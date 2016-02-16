@@ -52,7 +52,7 @@ bool BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertE
     node_type_t cur_node_type = node_pointer->type;
     switch(cur_node_type){
       case(LEAF_BW_NODE):
-        class LeafBWNode *leaf_pointer = (class LeafBWNode *)node_pointer;
+        LeafBWNode *leaf_pointer = (LeafBWNode *)node_pointer;
         uint64_t cur_node_size = leaf_pointer->get_size();
         if(cur_node_size < max_node_size){
           return leaf_pointer->insert(key, location);
@@ -63,13 +63,13 @@ bool BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertE
         stop = true;
         break;
       case(INTERNAL_BW_NODE):
-        class InternalBWNode *internal_pointer = (class InternalBWNode *)node_pointer;
+        InternalBWNode *internal_pointer = (InternalBWNode *)node_pointer;
         prev_id = cur_id;
         cur_id = internal_pointer->get_child_id(key);  
         try_consolidation = true;
         break;
       case(INSERT):
-        class SimpleDeltaNode *simple_pointer = (class SimpleDeltaNode *)node_pointer;
+        SimpleDeltaNode *simple_pointer = (SimpleDeltaNode *)node_pointer;
         if( equals(*key, simple_pointer->key) && 
             std::find(deleted_keys.begin(), deleted_keys.end(), *key) == deleted_keys.end())
           return false;
@@ -77,7 +77,7 @@ bool BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertE
         try_consolidation = false;
         break;
       case(UPDATE):
-        class SimpleDeltaNode *simple_pointer = (class SimpleDeltaNode *)node_pointer;
+        SimpleDeltaNode *simple_pointer = (SimpleDeltaNode *)node_pointer;
         if( equals(*key, simple_pointer->key) && 
             std::find(deleted_keys.begin(), deleted_keys.end(), *key) == deleted_keys.end())
           return false;
@@ -85,14 +85,14 @@ bool BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertE
         try_consolidation = false;
         break;
       case(DELETE):
-        class SimpleDeltaNode *simple_pointer = (class SimpleDeltaNode *)node_pointer;
+        SimpleDeltaNode *simple_pointer = (SimpleDeltaNode *)node_pointer;
         if(equals(*key, simple_pointer->key))
           deleted_keys.push_back(*key);
         node_pointer = simple_pointer->next();
         try_consolidation = false;
         break;
       case(SPLIT):
-        class SplitDeltaNode *split_pointer = (class SplitDeltaNode *)node_pointer;
+        SplitDeltaNode *split_pointer = (SplitDeltaNode *)node_pointer;
         if(comparator(*key, split_pointer->key)){
           node_pointer = split_pointer->next;
           try_consolidation = false;
@@ -104,7 +104,7 @@ bool BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertE
         }
         break;
       case(MERGE):
-        class MergeDeltaNode *merge_pointer = (class MergeDeltaNode *)node_pointer;
+        MergeDeltaNode *merge_pointer = (MergeDeltaNode *)node_pointer;
         if(comparator(*key, merge_pointer->MergeKey)){
           node_pointer = merge_pointer->next;
         }
@@ -118,10 +118,10 @@ bool BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertE
         try_consolidation = true;
         break;
       case(SPLIT_INDEX):
-        class SplitIndexDeltaNode *split_index_pointer = (class SplitIndexDeltaNode *)node_pointer; 
+        SplitIndexDeltaNode *split_index_pointer = (SplitIndexDeltaNode *)node_pointer; 
         if(std::find(deleted_indexes.begin(), deleted_indexes.end(), split_index_pointer->split_key) == deleted_indexes.end()){
           if(comparator(*key, split_index_pointer->split_key) || !comparator(*key, split_index_pointer->boundary_key)){
-            node_pointer = split_index_pointer->split_parent;
+            node_pointer = split_index_pointer->next;
             try_consolidation = false;
           }
           else{
@@ -131,14 +131,14 @@ bool BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertE
           }
         }
         else{
-          node_pointer = split_index_pointer->split_parent;
+          node_pointer = split_index_pointer->next;
           try_consolidation = false;
         }
         break;
       case(DELETE_INDEX):
-        class DeleteIndexDeltaNode *delete_index_pointer = (class DeleteIndexDeltaNode *)node_pointer;
+        DeleteIndexDeltaNode *delete_index_pointer = (DeleteIndexDeltaNode *)node_pointer;
         deleted_indexes.push_back(delete_index_pointer->deleted_key;
-        node_pointer = delete_index_pointer->split_parent;
+        node_pointer = delete_index_pointer->next;
         break;
     }
   }
