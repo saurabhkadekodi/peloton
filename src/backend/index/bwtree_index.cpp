@@ -40,14 +40,18 @@ bool BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertE
   bool stop = false;
   bool try_consolidation = true;
   std::vector<KeyType> deleted_keys, deleted_indexes;
+  uint64_t *path = (uint64_t *)malloc(uint64_t * tree_height);
+  uint64_t index = 0;
   while(!stop){
     if(try_consolidation){
-      ConsolidateNode(cur_id);
+      ConsolidateNode(cur_id, false);
       std::pair<void *, uint32_t> node_ = table.get(cur_id); 
       void *node_pointer = node_.first;
       uint32_t chain_length = node_.second;
       deleted_keys.clear();
       deleted_indexes.clear();
+      index++;
+      path[index] = cur_id;
     }
     node_type_t cur_node_type = node_pointer->type;
     switch(cur_node_type){
@@ -58,7 +62,7 @@ bool BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertE
           return leaf_pointer->insert(key, location);
         }
         else{
-          return leaf_pointer->split_node(cur_id, prev_id, key, location); 
+          return leaf_pointer->split_node(cur_id, path, index, prev_id, key, location); 
         }
         stop = true;
         break;

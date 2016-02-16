@@ -68,6 +68,8 @@ class BWTreeIndex : public Index {
 
   std::string GetTypeName() const;
 
+  uint64_t tree_height;
+
   // TODO: Implement this
   bool Cleanup() {
     return true;
@@ -94,7 +96,7 @@ class BWTreeIndex : public Index {
   uint32_t min_node_size;
   uint32_t max_node_size;
   uint64_t root; // root points to an id in the mapping table
-  bool ConsolidateNode(uint64_t id); // id is that of the mapping table entry
+  bool ConsolidateNode(uint64_t id, bool force); // id is that of the mapping table entry
   bool SplitNode(uint64_t id, KeyType k, ValueType v); // id of the node to split and the new key, value to be inserted - rajat
   bool MergeNodes(uint64_t n1, uint64_t n2); // saurabh
   void * CreateNode(uint64_t id, node_type_t t); // for creating when consolidating

@@ -40,22 +40,22 @@ class BWTree {
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class InternalBWNode {
   private:
-  uint64_t id;
   epoch_t generation;
-  uint64_t sibling_id;
   std::vector<std::pair<KeyType, uint64_t>> key_list; // all keys have children
   BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *my_tree; // reference of the tree I belong to
 
   public:
+  uint64_t id;
+  uint64_t sibling_id;
   InternalBWNode(BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *bwt, uint64_t id);
   node_type_t type;
-  bool insert(uint64_t id, KeyType split_key, KeyType boundary_key);
+  bool insert(uint64_t id, KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
+  bool split(uint64_t id, uint64_t *path, uint64_t index, KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class LeafBWNode {
   private:
-  uint64_t id;
   epoch_t generation;
   uint64_t sibling_id;
   std::vector<std::pair<KeyType, ValueType>> kv_list; // all key value pairs
@@ -63,21 +63,22 @@ class LeafBWNode {
   node_type_t type;
 
   public:
+  uint64_t id;
   LeafBWNode(BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *bwt, uint64_t id);
   node_type_t get_node_type();
   uint64_t get_size();
   bool insert(KeyType key, ValueType value);
-  bool split_node(uint64_t id, uint32_t parent_id, KeyType key, ValueType value);
+  bool split_node(uint64_t id, uint64_t path, uint64_t index, KeyType key, ValueType value);
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class SimpleDeltaNode {
   private:
-  uint64_t id;
   epoch_t generation;
   BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *my_tree; // reference of the tree I belong to
 
   public:
+  uint64_t id;
   void *next; // can be delta node or internal_bw_node or leaf_bw_node
   KeyType key;
   ValueType val;
@@ -88,12 +89,12 @@ class SimpleDeltaNode {
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class SplitIndexDeltaNode {
 	private:
-  uint64_t id;
   epoch_t generation;
   BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *my_tree; // reference of the tree I belong to
 
   public:
   SplitIndexDeltaNode(BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *bwt, uint64_t id);
+  uint64_t id;
   node_type_t type;
   KeyType split_key, boundary_key;
   void *next; // can be delta node or internal_bw_node
@@ -103,11 +104,11 @@ class SplitIndexDeltaNode {
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class DeleteIndexDeltaNode {
   private:
-  uint64_t id;
   epoch_t generation;
   BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *my_tree; // reference of the tree I belong to
  
   public:
+  uint64_t id;
   DeleteIndexDeltaNode(BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *bwt, uint64_t id);
   node_type_t type;
   KeyType deleted_key;
@@ -116,11 +117,11 @@ class DeleteIndexDeltaNode {
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class SplitDeltaNode {
-  uint64_t id;
   epoch_t generation;
   BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *my_tree; // reference of the tree I belong to
 
   public:
+  uint64_t id;
   SplitDeltaNode(BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *bwt, uint64_t id);
   node_type_t type;
   KeyType split_key;
@@ -130,24 +131,24 @@ class SplitDeltaNode {
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class RemoveDeltaNode {
-  uint64_t id;
   epoch_t generation;
   KeyType deleted_key; 
   void *node_to_be_removed; // can be delta node or internal_bw_node or leaf_bw_node
   BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *my_tree; // reference of the tree I belong to
 
   public:
+  uint64_t id;
   RemoveDeltaNode(BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *bwt, uint64_t id);
   node_type_t type;
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class MergeDeltaNode {
-  uint64_t id;
   epoch_t generation;
   BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *my_tree; // reference of the tree I belong to
 
   public:
+  uint64_t id;
   MergeDeltaNode(BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *bwt, uint64_t id);
   node_type_t type;
   KeyType MergeKey;
