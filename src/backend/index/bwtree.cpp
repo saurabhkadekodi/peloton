@@ -14,7 +14,7 @@
 #include "assert.h"
 namespace peloton {
 namespace index {
-using namespace std;
+using namespace std; //SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 bool
 CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Install(uint64_t id, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr, uint32_t chain_length) {
@@ -175,38 +175,37 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Spli
   pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this.my_tree.table->Get(id);
   uint64_t count = key_list.size();
 
-  // uint64_t new_node_id = this.my_tree.table->Get_next_id(); // TODO: there is one in the function parameter
-  InternalBWNode new_internal_node = new InternalBWNode(this.my_tree, new_node_id);
+  uint64_t new_internal_node_id = this.my_tree.table->Get_next_id(); 
+  InternalBWNode new_internal_node = new InternalBWNode(this.my_tree, new_internal_node_id);
   new_internal_node->sibling_id = sibling_id;
-  sibling_id = new_node_id;
+  sibling_id = new_internal_node_id;
 
-  // TODO: these two have an undefined type KeyValue
-  split_key = key_list[count/2].first;
-  boundary_key = key_list[count-1].first;
+  auto internal_split_key = key_list[count/2].first;
+  auto internal_boundary_key = key_list[count-1].first;
   vector<pair<KeyType, uint64_t>> split_iterator = key_list.begin();
   advance(split_iterator, count/2);
 
   for(uint64_t i=count/2;i<count;i++)
   {
     pair<KeyType, ValueType> new_entry = key_list[i];
-    // new_leaf_node->key_list.push_back(new_entry); //TODO: new_leaf_node is not defined
+    new_internal_node->key_list.push_back(new_entry); 
   }
 
   // TODO: figure out relationship between bwtree and bwtreeidx then can use this comparator
-  // if(this.my_tree.comparator(key, split_key)){
-  //   key_list.insert(upper_bound(key_list.begin(), split_iterator, key, this.my_tree.comparator), key);
+  // if(this.my_tree.comparator(split_key, internal_split_key)){
+  //   key_list.insert(upper_bound(key_list.begin(), split_iterator, split_key, this.my_tree.comparator), split_key);
   // }
   // else{
-  //   new_leaf_node->key_list.insert(upper_bound(new_leaf_node->key_list.begin(), new_leaf_node->key_list.end(), key, this.my_tree.comparator), key);
+  //   new_leaf_node->key_list.insert(upper_bound(new_leaf_node->key_list.begin(), new_leaf_node->key_list.end(), split_key, this.my_tree.comparator), split_key);
   // }
 
-  SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* split_node = new SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this.my_tree, id);
-  split_node->next = node_.first;
-  split_node->target_node_id = new_node_id;
-  // split_node->split_key = key; //TODO: what is key?
+   SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* split_node = new SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this.my_tree, id);
+   split_node->next = node_.first;
+   split_node->target_node_id = new_node_id;
+   split_node->split_key = split_key; 
 
   uint32_t chain_len = node_.second;
-  // ret_val = this.my_tree.table->Install(new_node_id, new_leaf_node, 0); //TODO: what is new_leaf_node
+  ret_val = this.my_tree.table->Install(new_internal_node_id, new_internal_node, 0);
   if(!ret_val)
     return false;
   ret_val = this.my_tree.table->Install(id, split_node, chain_len+1);
@@ -227,9 +226,9 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Spli
     }
     uint64_t parent_size = node_pointer->Get_size();
     if(parent_size < this.my_tree.max_node_size || index == 1)
-      ret_val = node_pointer->Insert(parent_id, split_key, boundary_key, new_node_id);
+      ret_val = node_pointer->Insert(parent_id, internal_split_key, internal_boundary_key, new_internal_node_id);
     else
-      ret_val = node_pointer->Split(parent_id, path, index - 1, split_key, boundary_key, new_node_id);
+      ret_val = node_pointer->Split(parent_id, path, index - 1, internal_split_key, internal_boundary_key, new_internal_node_id);
   }
   else
   {
