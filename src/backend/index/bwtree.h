@@ -81,10 +81,11 @@ class CASMappingTable {
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class BWTree {
   // friend class BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>;
-  CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& table;
- private:
-  BWTree() {}
-  // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& table) : table(table){}
+  CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table;
+ public:
+ // BWTree() {CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> b;
+BWTree() {}
+ // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table) : table(table){}
   uint32_t min_node_size;
   uint32_t max_node_size;
   uint64_t root; // root points to an id in the mapping table

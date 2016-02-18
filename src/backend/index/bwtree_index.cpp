@@ -58,6 +58,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
       path[index] = cur_id;
     }
     // TODO: nodepointer could be null
+Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* simple_pointer = nullptr;
     switch(node_pointer->type){
       case(LEAF_BW_NODE):
         LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
@@ -77,7 +78,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
         try_consolidation = true;
         break;
       case(INSERT):
-        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
+        simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
         if(equals(*key, simple_pointer->key) && 
             find(deleted_keys.begin(), deleted_keys.end(), *key) == deleted_keys.end())
           return false;
@@ -93,7 +94,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
       //   try_consolidation = false;
       //   break;
       case(DELETE):
-        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
+       simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
         if(equals(*key, simple_pointer->key))
           deleted_keys.push_back(*key);
         node_pointer = simple_pointer->next();
