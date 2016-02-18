@@ -25,22 +25,7 @@
 
 namespace peloton {
 namespace index {
-typedef uint64_t epoch_t;
-/**
- * BW tree-based index implementation.
- *
- * @see Index
- */
-class CASMappingTable {
-  private:
-  std::map<uint64_t, std::pair<void *, uint32_t>> cas_mapping_table; // should be capable of mapping to internal and leaf bw nodes and delta nodes of any type
-
-  public:
-  CASMappingTable();
-  bool Install(uint64_t id, void *node_ptr, uint32_t chain_length); // install into mapping table via compare and swap
-  std::pair<void *, uint32_t> Get(uint64_t id);
-  uint64_t get_next_id();
-};
+using namespace std;
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class BWTreeIndex : public Index {
@@ -57,16 +42,16 @@ class BWTreeIndex : public Index {
 
   bool DeleteEntry(const storage::Tuple *key, const ItemPointer location); // saurabh
 
-  std::vector<ItemPointer> Scan(const std::vector<Value> &values,
-                                const std::vector<oid_t> &key_column_ids,
-                                const std::vector<ExpressionType> &expr_types,
+  vector<ItemPointer> Scan(const vector<Value> &values,
+                                const vector<oid_t> &key_column_ids,
+                                const vector<ExpressionType> &expr_types,
                                 const ScanDirectionType& scan_direction); // saurabh
 
-  std::vector<ItemPointer> ScanAllKeys(); // saurabh
+  vector<ItemPointer> ScanAllKeys(); // saurabh
 
-  std::vector<ItemPointer> ScanKey(const storage::Tuple *key); // saurabh
+  vector<ItemPointer> ScanKey(const storage::Tuple *key); // saurabh
 
-  std::string GetTypeName() const;
+  string GetTypeName() const;
 
   uint64_t tree_height;
 
@@ -80,7 +65,6 @@ class BWTreeIndex : public Index {
     return 0;
   }
 
-  CASMappingTable *table;
  protected:
   // container
   MapType container;
@@ -91,17 +75,6 @@ class BWTreeIndex : public Index {
 
   // synch helper
   RWLock index_lock;
-
- private:
-  uint32_t min_node_size;
-  uint32_t max_node_size;
-  uint64_t root; // root points to an id in the mapping table
-  bool ConsolidateNode(uint64_t id, bool force); // id is that of the mapping table entry
-  bool SplitNode(uint64_t id, KeyType k, ValueType v); // id of the node to split and the new key, value to be inserted - rajat
-  bool MergeNodes(uint64_t n1, uint64_t n2); // saurabh
-  void * CreateNode(uint64_t id, node_type_t t); // for creating when consolidating
-  bool DeleteNode(uint64_t id);
-  // tianyuan - GC and the epoch mechanism
 };
 
 
