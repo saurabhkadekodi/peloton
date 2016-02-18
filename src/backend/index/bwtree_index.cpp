@@ -36,45 +36,48 @@ BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::~BWTreeIndex
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
-    const storage::Tuple *key, const ItemPointer location) {
+    KeyType key, ValueType value) {
   uint64_t cur_id = root;
   uint64_t prev_id = cur_id;
   bool stop = false;
   bool try_consolidation = true;
   vector<KeyType> deleted_keys, deleted_indexes;
-  uint64_t *path = (uint64_t *)malloc(uint64_t * tree_height);
+  uint64_t tree_height = 0; // TODO: what is tree_height originally
+  uint64_t *path = (uint64_t *)malloc(sizeof(uint64_t) * tree_height);
   uint64_t index = 0;
   while(!stop){
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = nullptr;
     if(try_consolidation){
       Consolidate(cur_id, false);
-      pair<Node*, uint32_t> node_ = table.get(cur_id); 
-      Node* node_pointer = node_.first;
+      pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = table.get(cur_id); 
+      node_pointer = node_.first;
       uint32_t chain_length = node_.second;
       deleted_keys.clear();
       deleted_indexes.clear();
       index++;
       path[index] = cur_id;
     }
+    // TODO: nodepointer could be null
     switch(node_pointer->type){
       case(LEAF_BW_NODE):
-        LeafBWNode* leaf_pointer = dynamic_cast<LeafBWNode*>(node_pointer);
+        LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
         uint64_t cur_node_size = leaf_pointer->Get_size();
         if(cur_node_size < max_node_size){
-          return leaf_pointer->Insert(key, location);
+          return leaf_pointer->Insert(key, value);
         }
         else{
-          return leaf_pointer->Split_node(cur_id, path, index, prev_id, key, location); 
+          return leaf_pointer->Split_node(cur_id, path, index, prev_id, key, value); 
         }
         stop = true;
         break;
       case(INTERNAL_BW_NODE):
-        InternalBWNode* internal_pointer = dynamic_cast<InternalBWNode*>(node_pointer);
+        InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* internal_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
         prev_id = cur_id;
         cur_id = internal_pointer->Get_child_id(key);  
         try_consolidation = true;
         break;
       case(INSERT):
-        DeltaNode* simple_pointer = dynamic_cast<DeltaNode*>(node_pointer);
+        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
         if(equals(*key, simple_pointer->key) && 
             find(deleted_keys.begin(), deleted_keys.end(), *key) == deleted_keys.end())
           return false;
@@ -90,14 +93,14 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
       //   try_consolidation = false;
       //   break;
       case(DELETE):
-        DeltaNode *simple_pointer = dynamic_cast<DeltaNode*>(node_pointer);
+        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
         if(equals(*key, simple_pointer->key))
           deleted_keys.push_back(*key);
         node_pointer = simple_pointer->next();
         try_consolidation = false;
         break;
       case(SPLIT):
-        SplitDeltaNode *split_pointer = dynamic_cast<SplitDeltaNode*>(node_pointer);
+        SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *split_pointer = dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
         // TODO: bwtree may not have access to comparator
         // if(comparator(*key, split_pointer->key)){
         //   node_pointer = split_pointer->next;
@@ -110,7 +113,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
         // }
         break;
       case(MERGE):
-        MergeDeltaNode *merge_pointer = dynamic_cast<MergeDeltaNode*>(node_pointer);
+        MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *merge_pointer = dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
         // if(comparator(*key, merge_pointer->MergeKey)){
         //   node_pointer = merge_pointer->next;
         // }
@@ -119,12 +122,12 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
         // }
         // try_consolidation = false;
         break;
-      case(NODE_DELETE):
+      case(REMOVE):
         cur_id = prev_id;
         try_consolidation = true;
         break;
       case(SPLIT_INDEX):
-        SplitIndexDeltaNode *split_index_pointer = dynamic_cast<SplitIndexDeltaNode*>(node_pointer); 
+        SplitIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *split_index_pointer = dynamic_cast<SplitIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer); 
         if(find(deleted_indexes.begin(), deleted_indexes.end(), split_index_pointer->split_key) == deleted_indexes.end()){
           // if(comparator(*key, split_index_pointer->split_key) || !comparator(*key, split_index_pointer->boundary_key)){
           //   node_pointer = split_index_pointer->next;
@@ -141,8 +144,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
           try_consolidation = false;
         }
         break;
-      case(DELETE_INDEX):
-        DeleteIndexDeltaNode *delete_index_pointer = dynamic_cast<DeleteIndexDeltaNode*>(node_pointer);
+      case(REMOVE_INDEX):
+        RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *delete_index_pointer = dynamic_cast<RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
         deleted_indexes.push_back(delete_index_pointer->deleted_key);
         node_pointer = delete_index_pointer->next;
         break;
