@@ -100,7 +100,7 @@ BWTree() {}
   // tianyuan - GC and the epoch mechanism
   bool Insert(KeyType key, ValueType value);
   bool Delete(KeyType key, ValueType value);
-  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* Search(KeyType key);
+  uint64_t Search(KeyType key, uint64_t *path, uint64_t &location);
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>

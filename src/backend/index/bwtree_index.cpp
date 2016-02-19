@@ -201,9 +201,10 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(KeyType ke
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 bool BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertEntry(
-    const storage::Tuple *key, const ItemPointer location) {
+    __attribute__((unused)) const storage::Tuple *key, __attribute__((unused)) const ItemPointer location) {
   // Add your implementation here
-  return container.Insert(key, location);
+  return false;
+  //return container.Insert(key, location);
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
