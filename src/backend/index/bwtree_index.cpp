@@ -38,21 +38,30 @@ template <typename KeyType, typename ValueType, class KeyComparator, class KeyEq
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
     KeyType key, ValueType value) {
 
-Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = Search(key);
-assert(leaf_pointer -> type == LEAF_BW_NODE);
-  LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
+  uint64_t *path = (uint64_t *)malloc(sizeof(uint64_t) * tree_height);
+  uint64_t location;
+  uint64_t node_id = Search(key, path, location);
+  // TODO Check whether duplicated are allowed
+  
+  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *, uint32_t> node_ = table.Get(node_id);
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_pointer = node_.first;
+  uint32_t chain_len = node_.second;
 
 
-        uint64_t cur_node_size = leaf_pointer->Get_size();
-        if(cur_node_size < max_node_size){
-          return leaf_pointer->Insert(key, value);
-        }
-        else{
-          // return leaf_pointer->Split_node(cur_id, path, index, prev_id, key, value); 
+  void *cur_pointer = (void *)node_pointer;
+  while(cur_pointer->next)
+    cur_pointer = cur_pointer->next;
 
-        }
- 
-  // Add your implementation here
+  LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(cur_pointer);
+
+
+  uint64_t cur_node_size = leaf_pointer->Get_size();
+  if(cur_node_size < max_node_size){
+    return leaf_pointer->Insert(key, location);
+  }
+  else{
+    return leaf_pointer->Split_node(path, location, key, value);
+  }
   return false;
 }
 
@@ -74,17 +83,17 @@ assert(leaf_pointer -> type == LEAF_BW_NODE);
 
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
-Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* 
-BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(KeyType key) {
+uint64_t 
+BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(KeyType key, uint64_t *path, uint64_t &location) {
   uint64_t cur_id = root;
   uint64_t prev_id = cur_id;
   bool stop = false;
   bool try_consolidation = true;
   vector<KeyType> deleted_keys, deleted_indexes;
-  uint64_t *path = (uint64_t *)malloc(sizeof(uint64_t) * tree_height);
   uint64_t index = 0;
+  location = 0;
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = nullptr;
   while(!stop){
-    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = nullptr;
     if(try_consolidation){
       Consolidate(cur_id, false);
       pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = table.get(cur_id); 
@@ -92,15 +101,16 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(KeyType ke
       uint32_t chain_length = node_.second;
       deleted_keys.clear();
       deleted_indexes.clear();
-      index++;
       path[index] = cur_id;
+      index++;
+      location++;
     }
     // TODO: nodepointer could be null
-Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* simple_pointer = nullptr;
+	Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* simple_pointer = nullptr;
     switch(node_pointer->type){
       case(LEAF_BW_NODE):
         LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
-        return leaf_pointer;
+        return leaf_pointer->id;
         break;
       case(INTERNAL_BW_NODE):
         InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* internal_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
@@ -112,8 +122,8 @@ Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* simple_pointer = nu
         simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
         if(equals(*key, simple_pointer->key) && 
             find(deleted_keys.begin(), deleted_keys.end(), *key) == deleted_keys.end())
-          return nullptr;
-        node_pointer = simple_pointer->next();
+          return simple_pointer->id; 
+        node_pointer = simple_pointer->next;
         try_consolidation = false;
         break;
       // case(UPDATE):
@@ -130,46 +140,47 @@ Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* simple_pointer = nu
           deleted_keys.push_back(*key);
         node_pointer = simple_pointer->next();
         try_consolidation = false;
+        return simple_pointer->id;
         break;
       case(SPLIT):
         SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *split_pointer = dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
-        // TODO: bwtree may not have access to comparator
-        // if(comparator(*key, split_pointer->key)){
-        //   node_pointer = split_pointer->next;
-        //   try_consolidation = false;
-        // }
-        // else{
-        //   prev_id = cur_id;
-        //   cur_id = split_pointer->target_node_id;
-        //   try_consolidation = true;
-        // }
+        if(comparator(*key, split_pointer->key)){
+          node_pointer = split_pointer->next;
+          try_consolidation = false;
+        }
+        else{
+          prev_id = cur_id;
+          cur_id = split_pointer->target_node_id;
+          try_consolidation = true;
+        }
         break;
       case(MERGE):
         MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *merge_pointer = dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
-        // if(comparator(*key, merge_pointer->MergeKey)){
-        //   node_pointer = merge_pointer->next;
-        // }
-        // else{
-        //   node_pointer = merge_pointer->node_to_be_merged;
-        // }
-        // try_consolidation = false;
+        if(comparator(*key, merge_pointer->MergeKey)){
+          node_pointer = merge_pointer->next;
+        }
+        else{
+          node_pointer = merge_pointer->node_to_be_merged;
+        }
+        try_consolidation = false;
         break;
       case(REMOVE):
         cur_id = prev_id;
         try_consolidation = true;
+        // Should try to complete the SMO instead of going to the parent and waiting for the merge thread to complete it
         break;
       case(SPLIT_INDEX):
         SplitIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *split_index_pointer = dynamic_cast<SplitIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer); 
         if(find(deleted_indexes.begin(), deleted_indexes.end(), split_index_pointer->split_key) == deleted_indexes.end()){
-          // if(comparator(*key, split_index_pointer->split_key) || !comparator(*key, split_index_pointer->boundary_key)){
-          //   node_pointer = split_index_pointer->next;
-          //   try_consolidation = false;
-          // }
-          // else{
-          //   prev_id = cur_id;
-          //   cur_id = split_index_pointer->new_split_node_id;
-          //   try_consolidation = true;
-          // }
+          if(comparator(*key, split_index_pointer->split_key) || !comparator(*key, split_index_pointer->boundary_key)){
+            node_pointer = split_index_pointer->next;
+            try_consolidation = false;
+          }
+          else{
+            prev_id = cur_id;
+            cur_id = split_index_pointer->new_split_node_id;
+            try_consolidation = true;
+          }
         }
         else{
           node_pointer = split_index_pointer->next;
@@ -190,9 +201,9 @@ Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* simple_pointer = nu
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 bool BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertEntry(
-    __attribute__((unused)) const storage::Tuple *key, __attribute__((unused)) const ItemPointer location) {
+    const storage::Tuple *key, const ItemPointer location) {
   // Add your implementation here
-  return false;
+  return container.Insert(key, location);
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>

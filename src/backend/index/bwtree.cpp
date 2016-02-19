@@ -36,10 +36,10 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(K
   new DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this.my_tree, this.id);
   delta->key = key;
   delta->value = value;
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this.my_tree.table->Get(this.id);
+  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this.my_tree.table.Get(this.id);
   delta->next = node_.first;
   uint32_t chain_len = node_.second;
-  return this.my_tree.table->Install(this.id, delta, chain_len+1);
+  return this.my_tree.table.Install(this.id, delta, chain_len+1);
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
@@ -57,13 +57,13 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(K
 
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
-bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_node(uint64_t id, uint64_t *path, uint64_t index, KeyType key, ValueType value){
+bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_node(uint64_t *path, uint64_t index, KeyType key, ValueType value){
   bool result = this.my_tree.Consolidate(id, true);
   if (!result)
   {
     return result;
   }
-  uint64_t new_node_id = this.my_tree.table->Get_next_id();
+  uint64_t new_node_id = this.my_tree.table.Get_next_id();
   LeafBWNode* new_leaf_node = new LeafBWNode(this.my_tree, new_node_id);
   new_leaf_node->sibling_id = sibling_id;
   sibling_id = new_node_id;
@@ -71,24 +71,23 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_no
   uint64_t count = kv_list.size();
   KeyType split_key = kv_list[count/2].first;
   KeyType boundary_key = kv_list[count-1].first;
-  vector<pair<KeyType, ValueType>> split_iterator = kv_list.begin();
+  multimap<KeyType, ValueType, KeyCompartor>::iterator split_iterator = kv_list.begin();
   advance(split_iterator, count/2);
 
-  for(uint64_t i=count/2;i<count;i++)
+  for(;split_iterator != kv_list.end();split_iterator++)
   {
-    pair<KeyType, ValueType> new_entry = kv_list[i];
-    new_leaf_node->kv_list.push_back(new_entry);
+    pair<KeyType, ValueType> new_entry = *split_iterator;
+    new_leaf_node->kv_list.insert(new_entry);
   }
 
-  // TODO: figure out relationship between bwtree and bwtreeidx then can use this comparator
-  // if(this.my_tree.comparator(key, split_key)){
-  //   kv_list.insert(upper_bound(kv_list.begin(), split_iterator, key, this.my_tree.comparator), key);
-  // }
-  // else{
-  //   new_leaf_node->kv_list.insert(upper_bound(new_leaf_node->kv_list.begin(), new_leaf_node->kv_list.end(), key, this.my_tree.comparator), key);
-  // }
+  if(this.my_tree.comparator(key, split_key)){
+    kv_list.insert(make_pair(key, value));
+  }
+  else{
+    new_leaf_node->kv_list.insert(make_pair(key, value));
+  }
 
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this.my_tree.table->Get(id);
+  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this.my_tree.table.Get(id);
   SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* split_node = new SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this.my_tree, id);
   split_node->next = node_.first;
   split_node->target_node_id = new_node_id;
@@ -96,29 +95,34 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_no
 
   uint32_t chain_len = node_.second;
   bool ret_val = true;
-  ret_val = this.my_tree.table->Install(new_node_id, new_leaf_node, 0);
+  ret_val = this.my_tree.table.Install(new_node_id, new_leaf_node, 0);
   if(!ret_val)
     return false;
-  ret_val = this.my_tree.table->Install(id, split_node, chain_len+1);
+  ret_val = this.my_tree.table.Install(id, split_node, chain_len+1);
   if(!ret_val)
     return false;
 
-  uint64_t parent_id = path[index-1];
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> parent_node_ = this.my_tree.table->Get(parent_id);
-  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = parent_node_.first;
-  while(1) // SUGGESTION: remove infinite loop condition
-  {
-    if(INTERNAL_BW_NODE == node_pointer->type)
-      break;
-    else
-      node_pointer = node_pointer->next;
+  if(index > 0){
+	  uint64_t parent_id = path[index-1];
+	  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> parent_node_ = this.my_tree.table.Get(parent_id);
+	  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = parent_node_.first;
+	  
+	  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *cur_pointer = node_pointer;
+	  while(cur_pointer->next)
+		cur_pointer = cur_pointer->next;
+
+	  InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* internal_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(cur_pointer);
+
+	  uint64_t parent_size = internal_pointer->Get_size();
+	  if(parent_size < this.my_tree.max_node_size)
+		ret_val = node_pointer->Insert(split_key, boundary_key, new_node_id);
+	  else
+		ret_val = node_pointer->Split(path, index - 1, split_key, boundary_key, new_node_id);
+	  return ret_val;
   }
-  uint64_t parent_size = node_pointer->Get_size();
-  if(parent_size < this.my_tree.max_node_size || index == 1)
-    ret_val = node_pointer->Insert(parent_id, split_key, boundary_key, new_node_id);
-  else
-    ret_val = node_pointer->Split(parent_id, path, index - 1, split_key, boundary_key, new_node_id);
-  return ret_val;
+  else{
+	//SplitRoot
+  }
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
@@ -312,7 +316,11 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Spli
 }
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 uint64_t InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_child_id(KeyType key) {
-  return 0;  
+	multimap<KeyType, uint64_t, KeyComparator>::iterator iter = key_list.find(key);
+	if(iter == key_list.end()){
+		return rightmost_pointer;
+	}
+	return iter->second;
 } 
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>

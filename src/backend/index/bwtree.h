@@ -43,7 +43,7 @@ class BWTree;
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class Node {
 
-protected:
+public:
   epoch_t generation;
   uint64_t id;
   const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& my_tree; // reference of the tree I belong to
@@ -84,8 +84,8 @@ class CASMappingTable {
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class BWTree {
   // friend class BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>;
-  CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table;
  public:
+  CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table;
  // BWTree() {CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> b;
 BWTree() {}
  // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table) : table(table){}
@@ -105,7 +105,7 @@ BWTree() {}
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class InternalBWNode : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
-  vector<pair<KeyType, uint64_t>> key_list; // all keys have children
+  multimap<KeyType, uint64_t, KeyComparator> key_list; // all keys have children
   uint64_t rightmost_pointer;
   public:
   uint64_t sibling_id;
@@ -121,7 +121,7 @@ class InternalBWNode : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecke
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class LeafBWNode : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
-  vector<pair<KeyType, ValueType>> kv_list; // all key value pairs
+  multimap<KeyType, ValueType, KeyComparator> kv_list; // all key value pairs
 
   public:
   uint64_t sibling_id;  
