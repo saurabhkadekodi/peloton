@@ -113,9 +113,9 @@ class InternalBWNode : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecke
   uint64_t high;
   InternalBWNode(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id) :
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, INTERNAL_BW_NODE) {}
-  bool Insert(uint64_t id, KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
-  bool Split(uint64_t id, uint64_t *path, uint64_t index, KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
-  bool Delete(uint64_t id, KeyType merged_key); 
+  bool Insert(KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
+  bool Split(uint64_t *path, uint64_t index, KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
+  bool Delete(KeyType merged_key); 
   uint64_t Get_child_id(KeyType key);
 };
 
@@ -132,8 +132,8 @@ class LeafBWNode : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
   uint64_t Get_size();
   bool Insert(KeyType key, ValueType value);
   bool Delete(KeyType key, ValueType value);
-  bool Split_node(uint64_t id, uint64_t *path, uint64_t index, KeyType key, ValueType value);
-  bool Merge_node(uint64_t id, uint64_t *path, uint64_t index);
+  bool Split_node(uint64_t *path, uint64_t index, KeyType key, ValueType value);
+  bool Merge_node(uint64_t *path, uint64_t index);
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
