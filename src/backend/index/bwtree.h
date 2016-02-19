@@ -55,7 +55,7 @@ protected:
   ~Node() {
     next -> ~Node();
   }
-  virtual Consolidate(){}
+  virtual bool Consolidate();
 public:
   node_type_t type;
 };
@@ -91,6 +91,7 @@ BWTree() {}
  // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table) : table(table){}
   uint32_t min_node_size;
   uint32_t max_node_size;
+  uint64_t tree_height;
   uint64_t root; // root points to an id in the mapping table
   bool Consolidate(uint64_t id, bool force) {return false;} // id is that of the mapping table entry
   bool MergeNodes(uint64_t n1, uint64_t n2){return false;} // saurabh
@@ -140,7 +141,7 @@ class DeltaNode : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
   KeyType key;
   ValueType value;
   public:
-  Consolidate();
+  bool Consolidate();
   DeltaNode(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id, node_type_t type) :
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, type) {} // Default is INSERT type
 };
