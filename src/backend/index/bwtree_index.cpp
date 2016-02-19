@@ -48,7 +48,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   uint32_t chain_len = node_.second;
 
 
-  void *cur_pointer = (void *)node_pointer;
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *cur_pointer = node_pointer;
   while(cur_pointer->next)
     cur_pointer = cur_pointer->next;
 
