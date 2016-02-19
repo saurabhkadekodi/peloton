@@ -27,6 +27,7 @@ typedef enum node_type {
   INTERNAL_BW_NODE,
   LEAF_BW_NODE,
   INSERT,
+  UPDATE,
   DELETE,
   SPLIT,
   MERGE,
@@ -62,12 +63,12 @@ class CASMappingTable {
   typedef Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> NodeType;
 
   private:
-  map<uint64_t, pair<void*, uint32_t>> cas_mapping_table; // should be capable of mapping to internal and leaf bw nodes and delta nodes of any type
+  map<uint64_t, pair<NodeType*, uint32_t>> cas_mapping_table; // should be capable of mapping to internal and leaf bw nodes and delta nodes of any type
 
   public:
   CASMappingTable() {};
   bool Install(uint64_t id, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr, uint32_t chain_length); // install into mapping table via compare and swap
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> Get(uint64_t id);
+  pair<NodeType*, uint32_t> Get(uint64_t id);
   uint64_t Get_next_id();
 };
 
