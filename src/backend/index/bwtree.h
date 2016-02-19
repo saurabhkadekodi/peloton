@@ -16,6 +16,7 @@
 #include <vector>
 #include <map>
 #include <utility>
+#include <set>
 
 namespace peloton {
 namespace index {
@@ -54,6 +55,7 @@ protected:
   ~Node() {
     next -> ~Node();
   }
+  virtual Consolidate(){}
 public:
   node_type_t type;
 };
@@ -97,7 +99,8 @@ BWTree() {}
   bool DeleteNode(uint64_t id){return false;}
   // tianyuan - GC and the epoch mechanism
   bool Insert(KeyType key, ValueType value);
-
+  bool Delete(KeyType key, ValueType value);
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* Search(KeyType key);
 
 };
 
@@ -107,6 +110,8 @@ class InternalBWNode : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecke
 
   public:
   uint64_t sibling_id;
+  uint64_t low;
+  uint64_t high;
   InternalBWNode(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id) :
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, INTERNAL_BW_NODE) {}
   bool Insert(uint64_t id, KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
@@ -119,19 +124,24 @@ class LeafBWNode : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
   vector<pair<KeyType, ValueType>> kv_list; // all key value pairs
 
   public:
-  uint64_t sibling_id;
+  uint64_t sibling_id;  
+  uint64_t low;
+  uint64_t high;
   LeafBWNode(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id) :
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, LEAF_BW_NODE) {}
   uint64_t Get_size();
   bool Insert(KeyType key, ValueType value);
+  bool Delete(KeyType key, ValueType value);
   bool Split_node(uint64_t id, uint64_t *path, uint64_t index, KeyType key, ValueType value);
+  // bool Merge_node(uint64_t id, uint64_t *path, uint64_t index, KeyType key, ValueType value);
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class DeltaNode : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
   KeyType key;
-  ValueType val;
+  ValueType value;
   public:
+  Consolidate();
   DeltaNode(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id) :
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, INSERT) {} // Default is INSERT type
 };

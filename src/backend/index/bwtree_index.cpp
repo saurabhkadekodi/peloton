@@ -37,12 +37,49 @@ BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::~BWTreeIndex
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
     KeyType key, ValueType value) {
+
+Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = Search(key);
+assert(leaf_pointer -> type == LEAF_BW_NODE);
+  LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
+
+
+        uint64_t cur_node_size = leaf_pointer->Get_size();
+        if(cur_node_size < max_node_size){
+          return leaf_pointer->Insert(key, value);
+        }
+        else{
+          return leaf_pointer->Split_node(cur_id, path, index, prev_id, key, value); 
+        }
+ 
+  // Add your implementation here
+  return false;
+}
+
+template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(KeyType key, ValueType value) {
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = Search(key);
+assert(leaf_pointer -> type == LEAF_BW_NODE);
+  LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
+
+
+        uint64_t cur_node_size = leaf_pointer->Get_size();
+                if(cur_node_size > min_node_size){
+          return leaf_pointer->Delete(key, value);
+        }
+        else{
+          // return leaf_pointer->Merge_node(cur_id, path, index, prev_id, key, value); 
+        }
+}
+
+
+template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* 
+BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(KeyType key) {
   uint64_t cur_id = root;
   uint64_t prev_id = cur_id;
   bool stop = false;
   bool try_consolidation = true;
   vector<KeyType> deleted_keys, deleted_indexes;
-  uint64_t tree_height = 0; // TODO: what is tree_height originally
   uint64_t *path = (uint64_t *)malloc(sizeof(uint64_t) * tree_height);
   uint64_t index = 0;
   while(!stop){
@@ -62,14 +99,7 @@ Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* simple_pointer = nu
     switch(node_pointer->type){
       case(LEAF_BW_NODE):
         LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
-        uint64_t cur_node_size = leaf_pointer->Get_size();
-        if(cur_node_size < max_node_size){
-          return leaf_pointer->Insert(key, value);
-        }
-        else{
-          return leaf_pointer->Split_node(cur_id, path, index, prev_id, key, value); 
-        }
-        stop = true;
+        return leaf_pointer;
         break;
       case(INTERNAL_BW_NODE):
         InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* internal_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
@@ -81,7 +111,7 @@ Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* simple_pointer = nu
         simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
         if(equals(*key, simple_pointer->key) && 
             find(deleted_keys.begin(), deleted_keys.end(), *key) == deleted_keys.end())
-          return false;
+          return nullptr;
         node_pointer = simple_pointer->next();
         try_consolidation = false;
         break;
@@ -154,7 +184,7 @@ Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* simple_pointer = nu
   }
 
   // Add your implementation here
-  return false;
+  return nullptr;
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
