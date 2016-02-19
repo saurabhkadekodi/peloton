@@ -17,7 +17,7 @@ namespace index {
 using namespace std; //SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 bool
-CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Install(uint64_t id, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr, uint32_t chain_length) {
+CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Install(Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr, uint32_t chain_length) {
   return false;
 }
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
@@ -57,7 +57,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(K
 
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
-bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_node(uint64_t id, uint64_t *path, uint64_t index, KeyType key, ValueType value){
+bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_node(uint64_t *path, uint64_t index, KeyType key, ValueType value){
   bool result = this.my_tree.Consolidate(id, true);
   if (!result)
   {
@@ -222,7 +222,7 @@ uint64_t LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_
 }
   
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
-bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(uint64_t id, KeyType split_key, KeyType boundary_key, uint64_t new_node_id){
+bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(KeyType split_key, KeyType boundary_key, uint64_t new_node_id){
   pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this.my_tree.table->Get(id);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = node_.first;
   SplitIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *split_index = new SplitIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this.my_tree, id);
@@ -236,7 +236,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inse
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
-bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split(uint64_t id, uint64_t *path, uint64_t index, 
+bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split(uint64_t *path, uint64_t index, 
     KeyType split_key, KeyType boundary_key, uint64_t new_node_id){
 
   bool ret_val = true;
@@ -316,7 +316,7 @@ uint64_t InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 } 
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
-bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(uint64_t id, KeyType merged_key){
+bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(KeyType merged_key){
   return false;
   
 }
