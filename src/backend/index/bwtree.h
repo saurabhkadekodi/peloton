@@ -49,19 +49,19 @@ typedef int node_type_t;
 #define SPLIT_INDEX 9
 #define REMOVE_INDEX 10
 
-template <typename KeyType, typename ValueType, class KeyComparator>
+template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
 class BWTree;
 
-template <typename KeyType, typename ValueType, class KeyComparator>
+template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
 class Node {
 
 public:
   epoch_t generation;
-  const BWTree<KeyType, ValueType, KeyComparator>& my_tree; // reference of the tree I belong to
+  const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& my_tree; // reference of the tree I belong to
   uint64_t id;
   node_type_t type;
-  Node<KeyType, ValueType, KeyComparator> *next;
-  Node(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id, node_type_t type) :
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *next;
+  Node(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id, node_type_t type) :
   my_tree(bwt), id(id), type(type) {
     next = nullptr;
   }
@@ -71,16 +71,16 @@ public:
   virtual bool Consolidate();
 };
 
-template <typename KeyType, typename ValueType, class KeyComparator>
+template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
 class CASMappingTable {
-  typedef Node<KeyType, ValueType, KeyComparator> NodeType;
+  typedef Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> NodeType;
 
   private:
   map<uint64_t, pair<NodeType*, uint32_t>> cas_mapping_table; // should be capable of mapping to internal and leaf bw nodes and delta nodes of any type
   uint64_t cur_max_id;
   public:
   CASMappingTable() : cur_max_id(1) {};
-  bool Install(uint64_t id, Node<KeyType, ValueType, KeyComparator>* node_ptr, uint32_t chain_length); // install into mapping table via compare and swap
+  bool Install(uint64_t id, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr, uint32_t chain_length); // install into mapping table via compare and swap
   pair<NodeType*, uint32_t> Get (uint64_t id) const;
   uint64_t Get_next_id();
 };
@@ -92,16 +92,16 @@ class CASMappingTable {
  *
  * @see Index
  */
-template <typename KeyType, typename ValueType, class KeyComparator>
+template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
 class BWTree {
-  // friend class BWTreeIndex<KeyType, ValueType, KeyComparator>;
+  // friend class BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>;
  public:
-  KeyComparator comparator;
-  CASMappingTable<KeyType, ValueType, KeyComparator> table;
- // BWTree() {CASMappingTable<KeyType, ValueType, KeyComparator> b;
+  KeyComparator, KeyEqualityChecker comparator;
+  CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table;
+ // BWTree() {CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> b;
 BWTree() {}
-BWTree(KeyComparator kc) : comparator(kc) {}
- // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator> table) : table(table){}
+BWTree(KeyComparator, KeyEqualityChecker kc) : comparator(kc) {}
+ // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table) : table(table){}
   uint32_t min_node_size;
   uint32_t max_node_size;
   uint64_t tree_height;
@@ -120,16 +120,16 @@ BWTree(KeyComparator kc) : comparator(kc) {}
   uint64_t Get_size(uint64_t id) const ;
 };
 
-template <typename KeyType, typename ValueType, class KeyComparator>
-class InternalBWNode : public Node<KeyType, ValueType, KeyComparator> {
+template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+class InternalBWNode : public Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
   public:
-  multimap<KeyType, uint64_t, KeyComparator> key_list; // all keys have children
+  multimap<KeyType, uint64_t, KeyComparator, KeyEqualityChecker> key_list; // all keys have children
   uint64_t leftmost_pointer;
   uint64_t sibling_id;
   uint64_t low;
   uint64_t high;
-  InternalBWNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id) :
-  Node<KeyType, ValueType, KeyComparator>(bwt, id, INTERNAL_BW_NODE) {}
+  InternalBWNode(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id) :
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, INTERNAL_BW_NODE) {}
   bool Internal_insert(KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
   bool Internal_split(uint64_t *path, uint64_t index, KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
   bool Internal_delete(KeyType merged_key); 
@@ -138,16 +138,16 @@ class InternalBWNode : public Node<KeyType, ValueType, KeyComparator> {
   uint64_t Get_child_id(KeyType key);
 };
 
-template <typename KeyType, typename ValueType, class KeyComparator>
-class LeafBWNode : public Node<KeyType, ValueType, KeyComparator> {
+template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+class LeafBWNode : public Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
 
   public:
-  multimap<KeyType, ValueType, KeyComparator> kv_list; // all key value pairs
+  multimap<KeyType, ValueType, KeyComparator, KeyEqualityChecker> kv_list; // all key value pairs
   uint64_t sibling_id;  
   uint64_t low;
   uint64_t high;
-  LeafBWNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id) :
-  Node<KeyType, ValueType, KeyComparator>(bwt, id, LEAF_BW_NODE) {}
+  LeafBWNode(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id) :
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, LEAF_BW_NODE) {}
   bool Leaf_insert(KeyType key, ValueType value);
   bool Leaf_delete(KeyType key, ValueType value);
   bool Leaf_split(uint64_t *path, uint64_t index, KeyType key, ValueType value);
@@ -155,58 +155,58 @@ class LeafBWNode : public Node<KeyType, ValueType, KeyComparator> {
   bool Consolidate();
 };
 
-template <typename KeyType, typename ValueType, class KeyComparator>
-class DeltaNode : public Node<KeyType, ValueType, KeyComparator> {
+template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+class DeltaNode : public Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
   public:
   KeyType key;
   ValueType value;
-  DeltaNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id, node_type_t type) :
-  Node<KeyType, ValueType, KeyComparator>(bwt, id, type) {} // Default is INSERT type
+  DeltaNode(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id, node_type_t type) :
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, type) {} // Default is INSERT type
 };
 
-template <typename KeyType, typename ValueType, class KeyComparator>
-class SplitIndexDeltaNode : public Node<KeyType, ValueType, KeyComparator> {
+template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+class SplitIndexDeltaNode : public Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
   public:
-  SplitIndexDeltaNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id) :
-  Node<KeyType, ValueType, KeyComparator>(bwt, id, SPLIT_INDEX) {}
+  SplitIndexDeltaNode(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id) :
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, SPLIT_INDEX) {}
   KeyType split_key, boundary_key;
   uint64_t new_split_node_id;
 };
 
-template <typename KeyType, typename ValueType, class KeyComparator>
-class RemoveIndexDeltaNode : public Node<KeyType, ValueType, KeyComparator> { 
+template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+class RemoveIndexDeltaNode : public Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> { 
   public:
   uint64_t id;
-  RemoveIndexDeltaNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id) :
-  Node<KeyType, ValueType, KeyComparator>(bwt, id, REMOVE_INDEX) {}
+  RemoveIndexDeltaNode(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id) :
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, REMOVE_INDEX) {}
   KeyType deleted_key;
 };
 
-template <typename KeyType, typename ValueType, class KeyComparator>
-class SplitDeltaNode : public Node<KeyType, ValueType, KeyComparator> {
+template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+class SplitDeltaNode : public Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
   public:
-  SplitDeltaNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id) :
-  Node<KeyType, ValueType, KeyComparator>(bwt, id, SPLIT) {}
+  SplitDeltaNode(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id) :
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, SPLIT) {}
   KeyType split_key;
   uint64_t target_node_id; 
 };
 
-template <typename KeyType, typename ValueType, class KeyComparator>
-class RemoveDeltaNode : public Node<KeyType, ValueType, KeyComparator> {
+template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+class RemoveDeltaNode : public Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
   public:
   //KeyType deleted_key; //The entire node is deleted and not a key, hence we don't need this
-  //Node<KeyType, ValueType, KeyComparator> *node_to_be_removed; // can be delta Node<KeyType, ValueType, KeyComparator> or internal_bw_node or leaf_bw_node
-  RemoveDeltaNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id) :
-  Node<KeyType, ValueType, KeyComparator>(bwt, id, REMOVE) {}
+  //Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_to_be_removed; // can be delta Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> or internal_bw_node or leaf_bw_node
+  RemoveDeltaNode(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id) :
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, REMOVE) {}
 };
 
-template <typename KeyType, typename ValueType, class KeyComparator>
-class MergeDeltaNode : public Node<KeyType, ValueType, KeyComparator> {
+template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+class MergeDeltaNode : public Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
   public:
-  MergeDeltaNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id) :
-  Node<KeyType, ValueType, KeyComparator>(bwt, id, MERGE) {}
+  MergeDeltaNode(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id) :
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, MERGE) {}
   KeyType merge_key;
-  Node<KeyType, ValueType, KeyComparator> *node_to_be_merged;
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_to_be_merged;
 };
 }  // End index namespace
 }  // End peloton namespace

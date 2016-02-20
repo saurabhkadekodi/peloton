@@ -27,11 +27,11 @@ namespace peloton {
 namespace index {
 using namespace std;
 
-template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 class BWTreeIndex : public Index {
   friend class IndexFactory;
 
-  typedef BWTree<KeyType, ValueType, KeyComparator> MapType;
+  typedef BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker> MapType;
 
  public:
   BWTreeIndex(IndexMetadata *metadata);
