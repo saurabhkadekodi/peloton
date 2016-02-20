@@ -11,6 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "backend/index/bwtree.h"
+#include "backend/common/types.h"
+#include "backend/index/index_key.h"
+#include "backend/storage/tuple.h"
+
 #include "assert.h"
 namespace peloton {
 namespace index {
@@ -35,10 +39,10 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Ins
 	}
 
 	uint32_t chain_len = chain_length;
-	while(true)	
+	while(true)	{
 		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> new_map(node_ptr, chain_len);
 		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> old_map(node_ptr->next, chain_len - 1);
-		if(__sync_bool_compare_and_swap (&cas_mapping_table[id], old_map, new_map){
+		if(__sync_bool_compare_and_swap (&cas_mapping_table[id], old_map, new_map)){
 			break;
 		}
 		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> cur_map = cas_mapping_table[id];
@@ -51,13 +55,13 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Ins
 
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
-pair<NodeType*, uint32_t> CASMappingTable::Get (uint64_t id){
+pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get (uint64_t id){
 	return cas_mapping_table[id];
 }
 
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
-uint64_t CASMappingTable::Get_next_id (uint64_t id){
+uint64_t CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_next_id (){
 	uint64_t old_val = cur_max_id;
 	uint64_t new_val = old_val + 1;
 	while(true){
@@ -351,27 +355,7 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(KeyType ke
   return 0;
 }
 
-template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
-bool
-CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Install(uint64_t id, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr, uint32_t chain_length) const {
-  id++;
-  node_ptr=nullptr;
-  chain_length++;
-  return false;
-}
-template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
-pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get(uint64_t id) const {
-  if (id ==0)
-  {
-    /* code */
-  }
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> dummy;
-  return dummy;
-}
-template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
-uint64_t CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_next_id() const {
-  return 0;
-}
+
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_insert(KeyType key, ValueType value){
@@ -468,7 +452,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_spl
 	  return ret_val;
   }
   else{
-	ret_val = my_tree.Split_root(split_key, this.id, new_node_id);
+	ret_val = this -> my_tree.Split_root(split_key, this.id, new_node_id);
 	if(!ret_val){
 		//TODO: Figure out what to do if splot_root fails
 	}
@@ -614,6 +598,8 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
       ret_val = parent_pointer->Internal_merge(path, index - 1, merge_node->merge_key);
     return ret_val;
   }
+}
+return false;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
@@ -1018,7 +1004,7 @@ uint64_t InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
      return  iter -> second;
     }
   }
-	if(iter == key_list.rend()){
+	if(iter == key_list.rend())
 		return leftmost_pointer;
 	 return 0;
 

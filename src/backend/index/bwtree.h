@@ -81,7 +81,7 @@ class CASMappingTable {
   public:
   CASMappingTable() : cur_max_id(1) {};
   bool Install(uint64_t id, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr, uint32_t chain_length); // install into mapping table via compare and swap
-  pair<NodeType*, uint32_t> Get (uint64_t id) const;
+  pair<NodeType*, uint32_t> Get (uint64_t id);
   uint64_t Get_next_id();
 };
 
