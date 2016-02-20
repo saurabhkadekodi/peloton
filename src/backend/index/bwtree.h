@@ -107,7 +107,7 @@ BWTree(KeyComparator kc) : comparator(kc) {}
   uint64_t tree_height;
   uint64_t root; // root points to an id in the mapping table
   bool Consolidate(uint64_t id, bool force); // id is that of the mapping table entry
-  // bool MergeNodes(uint64_t n1, uint64_t n2){return false;} // saurabh
+  bool Split_root(uint64_t split_key, uint64_t left_pointer, uint64_t right_pointer);
   //NodeType * CreateNode(uint64_t id, node_type_t t){return nullptr;} // for creating when consolidating
   //bool DeleteNode(uint64_t id){return false;}
   // tianyuan - GC and the epoch mechanism
