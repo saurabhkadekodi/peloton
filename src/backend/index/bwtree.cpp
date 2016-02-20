@@ -131,11 +131,10 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Merge_no
   bool ret_val = this.my_tree.Consolidate(this.id, true);
   if (!ret_val)
   {
-    return result;
+    return ret_val;
   }
 
-  pair<multimap<KeyType, ValueType, KeyComparator>::iterator, multimap<KeyType, ValueType, KeyComparator>::iterator> values;
-  values = kv_list.equal_range(key);
+  pair<typename multimap<KeyType, ValueType>::iterator, typename multimap<KeyType, ValueType>::iterator> values= kv_list.equal_range(key);
   typename multimap<KeyType, ValueType, KeyComparator>::iterator iter;
   for(iter=values.first;iter!=values.second;iter++){
     if(iter->second == value){
@@ -184,9 +183,9 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Merge_no
 		MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* merge_node = new MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this.my_tree, this.id);
 		merge_node->node_to_be_merged = n_node_pointer;
 		merge_node->next = node_.first;
-		uint32_t chain_len = node_.second;
+		uint32_t my_chain_len = node_.second;
 		merge_node->merge_key = n_node_pointer->kv_list.begin()->first;
-		ret_val = this.my_tree.table.Install(this.id, merge_node, chain_len+1);
+		ret_val = this.my_tree.table.Install(this.id, merge_node, my_chain_len+1);
 		if(!ret_val)
 			return false;
 
@@ -200,11 +199,11 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Merge_no
 
 		InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* parent_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(cur_pointer);
 
-		uint64_t parent_size = in_pointer->Get_size();
+		uint64_t parent_size = parent_pointer->Get_size();
 		if(parent_size - 1 > this.my_tree.min_node_size)
-			ret_val = node_pointer->Delete(merge_node->merge_key);
+			ret_val = parent_pointer->Delete(merge_node->merge_key);
 		else
-			ret_val = node_pointer->Merge(path, index - 1, merge_node->merge_key);
+			ret_val = parent_pointer->Merge(path, index - 1, merge_node->merge_key);
 		return ret_val;
 
 	}
@@ -230,7 +229,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Merge_no
         n_node_pointer->kv_list.erase(first_iterator);
       }
       //TODO: Find out the old split key, and how to update the parent 
-      KeyType new_split_key = key_list.begin()->first;
+      KeyType new_split_key = this.key_list.begin()->first;
 
     }
 	else{
@@ -247,9 +246,9 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Merge_no
 		MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* merge_node = new MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this.my_tree, neighbour_node_id);
 		merge_node->node_to_be_merged = node_pointer;
 		merge_node->next = n_node_pointer;
-		uint32_t chain_len = n_node_.second;
+		uint32_t neighbour_chain_len = n_node_.second;
 		merge_node->merge_key = node_pointer->kv_list.begin()->first;
-		ret_val = this.my_tree.table.Install(neighbour_node_id, merge_node, chain_len+1);
+		ret_val = this.my_tree.table.Install(neighbour_node_id, merge_node, neighbour_chain_len+1);
 		if(!ret_val)
 			return false;
 
@@ -263,11 +262,11 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Merge_no
 
 		InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* parent_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(cur_pointer);
 
-		uint64_t parent_size = in_pointer->Get_size();
+		uint64_t parent_size = parent_pointer->Get_size();
 		if(parent_size - 1 > this.my_tree.min_node_size)
-			ret_val = node_pointer->Delete(merge_node->merge_key);
+			ret_val = parent_pointer->Delete(merge_node->merge_key);
 		else
-			ret_val = node_pointer->Merge(path, index - 1, merge_node->merge_key);
+			ret_val = parent_pointer->Merge(path, index - 1, merge_node->merge_key);
 		return ret_val;
 	}
   }
@@ -308,57 +307,56 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Merge_no
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 bool DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(){
 
-  // uint64_t new_id = this.my_tree.table -> Get_next_id();
-  // LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *new_leaf_node = new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this.my_tree, new_id);
-  // multiset<KeyType, KeyComparator> insert_set;
-  // multiset<KeyType, KeyComparator> delete_set;
-  // DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *temp = this;
-  // LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *leaf_node = nullptr;
-  // bool stop = false;
-  // while (!stop) {
-  //   if (temp -> type == DELETE)
-  //   {
-  //     delete_set.insert(temp -> key);
-  //   } else if (temp -> type == INSERT) {
-  //     insert_set.insert(temp -> key);
-  //   }
-  //   if (temp -> next -> type == LEAF_BW_NODE) {
-  //     leaf_node = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp -> next);
-  //     stop = true;
-  //   } else {
-  //     temp = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *>(temp -> next);
-  //   }
-  // }
-  // assert(leaf_node!= nullptr);
-  // while (!insert_set.empty()) {
-  //   multiset<KeyType, KeyComparator>::iterator it = insert_set.begin();
-  //   KeyType key = *it;
-  //   multiset<KeyType, KeyComparator>::iterator dit = delete_set.find(key);
-  //   if (dit == delete_set.end())
-  //   {
-  //     leaf_node.kv_list.insert(key);
-  //   } else {
-  //     delete_set.erase(dit);
-  //   }
-  //   insert_set.erase(it);
-  // }
-  // while(!delete_set.empty()) {
-  //   multiset<KeyType, KeyComparator>::iterator dit = delete_set.begin();
-  //   KeyType key = *it;
-  //   multiset<KeyType, KeyComparator>::iterator it = leaf_node.kv_list.find(key);
-  //   if (it != kv_list.end())
-  //   {
-  //     kv_list.erase(it);
-  //   } 
-  //   delete_set.erase(dit);
-  // }
-  // while(!leaf_node.kv_list.empty()) {
-  //   multiset<KeyType, KeyComparator>::iterator it = leaf_node.kv_list.begin();
-  //   new_leaf_node.kv_list.insert(*it);
-  //   leaf_node.kv_list.erase(it);
-  // }
-  // return this.my_tree.table->Install(new_id, new_leaf_node, 1);   // TODO: what is the correct chain length?
-  return false;
+  uint64_t new_id = this.my_tree.table -> Get_next_id();
+  LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *new_leaf_node = new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this.my_tree, new_id);
+  multiset<KeyType, KeyComparator> insert_set;
+  multiset<KeyType, KeyComparator> delete_set;
+  DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *temp = this;
+  LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *leaf_node = nullptr;
+  bool stop = false;
+  while (!stop) {
+    if (temp -> type == DELETE)
+    {
+      delete_set.insert(temp -> key);
+    } else if (temp -> type == INSERT) {
+      insert_set.insert(temp -> key);
+    }
+    if (temp -> next -> type == LEAF_BW_NODE) {
+      leaf_node = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp -> next);
+      stop = true;
+    } else {
+      temp = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *>(temp -> next);
+    }
+  }
+  assert(leaf_node!= nullptr);
+  while (!insert_set.empty()) {
+    typename multiset<KeyType, KeyComparator>::iterator it = insert_set.begin();
+    KeyType key = *it;
+    typename multiset<KeyType, KeyComparator>::iterator dit = delete_set.find(key);
+    if (dit == delete_set.end())
+    {
+      leaf_node.kv_list.insert(key);
+    } else {
+      delete_set.erase(dit);
+    }
+    insert_set.erase(it);
+  }
+  while(!delete_set.empty()) {
+    typename multiset<KeyType, KeyComparator>::iterator dit = delete_set.begin();
+    KeyType key = *dit;
+    typename multiset<KeyType, KeyComparator>::iterator it = leaf_node.kv_list.find(key);
+    if (it != this.kv_list.end())
+    {
+      this.kv_list.erase(it);
+    } 
+    delete_set.erase(dit);
+  }
+  while(!leaf_node.kv_list.empty()) {
+    typename multiset<KeyType, KeyComparator>::iterator it = leaf_node.kv_list.begin();
+    new_leaf_node.kv_list.insert(*it);
+    leaf_node.kv_list.erase(it);
+  }
+  return this.my_tree.table->Install(new_id, new_leaf_node, 1);   // TODO: what is the correct chain length?
 
 
 }
@@ -370,16 +368,16 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_size
   uint64_t count = 0;
   bool end = false;
 
-  switch(node_pointer->type){
-    case(LEAF_BW_NODE):
-      return leaf_pointer->id;
-      break;
-    case(INTERNAL_BW_NODE):
-      InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* internal_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
-      prev_id = cur_id;
-      cur_id = internal_pointer->Get_child_id(key);  
-      try_consolidation = true;
-      break;
+  // switch(node_pointer->type){
+  //   case(LEAF_BW_NODE):
+  //     return leaf_pointer->id;
+  //     break;
+  //   case(INTERNAL_BW_NODE):
+  //     InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* internal_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
+  //     prev_id = cur_id;
+  //     cur_id = internal_pointer->Get_child_id(key);  
+  //     try_consolidation = true;
+  //     break;
   while(node_pointer != nullptr)
   {
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* simple_pointer = nullptr;
@@ -402,7 +400,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_size
         break;
       case(MERGE):
         MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* mdn = dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
-        LeafBWNode* to_be_merged = dynamic_cast<LeafBWNode*>(mdn->node_to_be_merged);
+        LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* to_be_merged = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(mdn->node_to_be_merged);
         count += to_be_merged->kv_list.size();
         break;
       case(REMOVE):
@@ -453,7 +451,6 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Spli
   if(!ret_val)
     return false;
   pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this.my_tree.table.Get(this.id);
-  uint64_t count = key_list.size();
 
   uint64_t new_internal_node_id = this.my_tree.table.Get_next_id(); 
   InternalBWNode new_internal_node = new InternalBWNode(this.my_tree, new_internal_node_id);
@@ -463,8 +460,8 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Spli
 
 
   uint64_t count = key_list.size();
-  KeyType split_key = key_list[count/2].first;
-  KeyType boundary_key = key_list[count-1].first;
+  // KeyType split_key = key_list[count/2].first;
+  // KeyType boundary_key = key_list[count-1].first;
   typename multimap<KeyType, uint64_t, KeyComparator>::iterator split_iterator = key_list.begin();
   advance(split_iterator, count/2);
 
@@ -474,12 +471,12 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Spli
     new_internal_node->key_list.insert(new_entry);
   }
 
-  if(this.my_tree.comparator(key, split_key)){
-    key_list.insert(make_pair(key, new_node_id));
-  }
-  else{
-    new_internal_node->key_list.insert(make_pair(key, new_node_id));
-  }
+  // if(this.my_tree.comparator(key, split_key)){
+  //   key_list.insert(make_pair(key, new_node_id));
+  // }
+  // else{
+  //   new_internal_node->key_list.insert(make_pair(key, new_node_id));
+  // }
 
    SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* split_node = new SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this.my_tree, this.id);
    split_node->next = node_.first;
