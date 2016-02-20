@@ -59,7 +59,7 @@ public:
   epoch_t generation;
   uint64_t id;
   const BWTree<KeyType, ValueType, KeyComparator>& my_tree; // reference of the tree I belong to
-  Node *next;
+  Node<KeyType, ValueType, KeyComparator> *next;
   Node(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id, node_type_t type) :
   my_tree(bwt), id(id), type(type) {
     next = nullptr;
@@ -97,10 +97,11 @@ template <typename KeyType, typename ValueType, class KeyComparator>
 class BWTree {
   // friend class BWTreeIndex<KeyType, ValueType, KeyComparator>;
  public:
+  KeyComparator comparator;
   CASMappingTable<KeyType, ValueType, KeyComparator> table;
  // BWTree() {CASMappingTable<KeyType, ValueType, KeyComparator> b;
 BWTree() {}
-BWTree(KeyComparator kc);
+BWTree(KeyComparator kc) : comparator(kc) {}
  // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator> table) : table(table){}
   uint32_t min_node_size;
   uint32_t max_node_size;
@@ -118,7 +119,7 @@ BWTree(KeyComparator kc);
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator>
-class InternalBWNode : Node<KeyType, ValueType, KeyComparator> {
+class InternalBWNode : public Node<KeyType, ValueType, KeyComparator> {
   public:
   multimap<KeyType, uint64_t, KeyComparator> key_list; // all keys have children
   uint64_t rightmost_pointer;
@@ -135,7 +136,7 @@ class InternalBWNode : Node<KeyType, ValueType, KeyComparator> {
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator>
-class LeafBWNode : Node<KeyType, ValueType, KeyComparator> {
+class LeafBWNode : public Node<KeyType, ValueType, KeyComparator> {
 
   public:
   multimap<KeyType, ValueType, KeyComparator> kv_list; // all key value pairs
@@ -151,17 +152,17 @@ class LeafBWNode : Node<KeyType, ValueType, KeyComparator> {
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator>
-class DeltaNode : Node<KeyType, ValueType, KeyComparator> {
+class DeltaNode : public Node<KeyType, ValueType, KeyComparator> {
+  public:
   KeyType key;
   ValueType value;
-  public:
   bool Consolidate();
   DeltaNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id, node_type_t type) :
   Node<KeyType, ValueType, KeyComparator>(bwt, id, type) {} // Default is INSERT type
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator>
-class SplitIndexDeltaNode : Node<KeyType, ValueType, KeyComparator> {
+class SplitIndexDeltaNode : public Node<KeyType, ValueType, KeyComparator> {
   public:
   SplitIndexDeltaNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id) :
   Node<KeyType, ValueType, KeyComparator>(bwt, id, SPLIT_INDEX) {}
@@ -170,7 +171,7 @@ class SplitIndexDeltaNode : Node<KeyType, ValueType, KeyComparator> {
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator>
-class RemoveIndexDeltaNode : Node<KeyType, ValueType, KeyComparator> { 
+class RemoveIndexDeltaNode : public Node<KeyType, ValueType, KeyComparator> { 
   public:
   uint64_t id;
   RemoveIndexDeltaNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id) :
@@ -179,7 +180,7 @@ class RemoveIndexDeltaNode : Node<KeyType, ValueType, KeyComparator> {
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator>
-class SplitDeltaNode : Node<KeyType, ValueType, KeyComparator> {
+class SplitDeltaNode : public Node<KeyType, ValueType, KeyComparator> {
   public:
   SplitDeltaNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id) :
   Node<KeyType, ValueType, KeyComparator>(bwt, id, SPLIT) {}
@@ -188,7 +189,7 @@ class SplitDeltaNode : Node<KeyType, ValueType, KeyComparator> {
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator>
-class RemoveDeltaNode : Node<KeyType, ValueType, KeyComparator> {
+class RemoveDeltaNode : public Node<KeyType, ValueType, KeyComparator> {
   public:
   //KeyType deleted_key; //The entire node is deleted and not a key, hence we don't need this
   //Node<KeyType, ValueType, KeyComparator> *node_to_be_removed; // can be delta Node<KeyType, ValueType, KeyComparator> or internal_bw_node or leaf_bw_node
@@ -197,7 +198,7 @@ class RemoveDeltaNode : Node<KeyType, ValueType, KeyComparator> {
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator>
-class MergeDeltaNode : Node<KeyType, ValueType, KeyComparator> {
+class MergeDeltaNode : public Node<KeyType, ValueType, KeyComparator> {
   public:
   MergeDeltaNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id) :
   Node<KeyType, ValueType, KeyComparator>(bwt, id, MERGE) {}

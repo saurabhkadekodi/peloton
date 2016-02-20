@@ -16,13 +16,13 @@ namespace peloton {
 namespace index {
 using namespace std; //SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
 
-template <typename KeyType, typename ValueType, class KeyComparator>
-BWTree<KeyType, ValueType, KeyComparator>::BWTree(KeyComparator kc) {
-if (true)
-{
-  return;
-}
-}
+// template <typename KeyType, typename ValueType, class KeyComparator>
+// BWTree<KeyType, ValueType, KeyComparator>::BWTree(KeyComparator kc) {
+// if (true)
+// {
+//   return;
+// }
+// }
 
 template <typename KeyType, typename ValueType, class KeyComparator>
 bool BWTree<KeyType, ValueType, KeyComparator>::Consolidate(uint64_t id, bool force) {
@@ -114,7 +114,7 @@ BWTree<KeyType, ValueType, KeyComparator>::Search(KeyType key, uint64_t *path, u
       Consolidate(cur_id, false);
       pair<Node<KeyType, ValueType, KeyComparator>*, uint32_t> node_ = table.get(cur_id); 
       node_pointer = node_.first;
-      uint32_t chain_length = node_.second;
+      // uint32_t chain_length = node_.second;
       deleted_keys.clear();
       deleted_indexes.clear();
       path[index] = cur_id;
@@ -136,15 +136,15 @@ BWTree<KeyType, ValueType, KeyComparator>::Search(KeyType key, uint64_t *path, u
         break;
       case(INSERT):
 {        simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
-        if(equals(*key, simple_pointer->key) && 
-            find(deleted_keys.begin(), deleted_keys.end(), *key) == deleted_keys.end())
+        if(equals(key, simple_pointer->key) && 
+            find(deleted_keys.begin(), deleted_keys.end(), key) == deleted_keys.end())
           return simple_pointer->id; 
         node_pointer = simple_pointer->next;
         try_consolidation = false;}
         break;
       // case(UPDATE):
       //   DeltaNode *simple_pointer = (DeltaNode *)node_pointer;
-      //   if( equals(*key, simple_pointer->key) && 
+      //   if( equals(key, simple_pointer->key) && 
       //       find(deleted_keys.begin(), deleted_keys.end(), *key) == deleted_keys.end())
       //     return false;
       //   node_pointer = simple_pointer->next();
@@ -152,15 +152,15 @@ BWTree<KeyType, ValueType, KeyComparator>::Search(KeyType key, uint64_t *path, u
       //   break;
       case(DELETE):
 {       simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
-        if(equals(*key, simple_pointer->key))
-          deleted_keys.push_back(*key);
+        if(equals(key, simple_pointer->key))
+          deleted_keys.push_back(key);
         node_pointer = simple_pointer->next();
         try_consolidation = false;
         return simple_pointer->id;}
         break;
       case(SPLIT):
 {        SplitDeltaNode<KeyType, ValueType, KeyComparator> *split_pointer = dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
-        if(comparator(*key, split_pointer->key)){
+        if(comparator(key, split_pointer->split_key)){
           node_pointer = split_pointer->next;
           try_consolidation = false;
         }
@@ -172,7 +172,7 @@ BWTree<KeyType, ValueType, KeyComparator>::Search(KeyType key, uint64_t *path, u
         break;
       case(MERGE):
 {        MergeDeltaNode<KeyType, ValueType, KeyComparator> *merge_pointer = dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
-        if(comparator(*key, merge_pointer->MergeKey)){
+        if(comparator(key, merge_pointer->merge_key)){
           node_pointer = merge_pointer->next;
         }
         else{
@@ -188,7 +188,7 @@ BWTree<KeyType, ValueType, KeyComparator>::Search(KeyType key, uint64_t *path, u
       case(SPLIT_INDEX):
 {        SplitIndexDeltaNode<KeyType, ValueType, KeyComparator> *split_index_pointer = dynamic_cast<SplitIndexDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer); 
         if(find(deleted_indexes.begin(), deleted_indexes.end(), split_index_pointer->split_key) == deleted_indexes.end()){
-          if(comparator(*key, split_index_pointer->split_key) || !comparator(*key, split_index_pointer->boundary_key)){
+          if(comparator(key, split_index_pointer->split_key) || !comparator(key, split_index_pointer->boundary_key)){
             node_pointer = split_index_pointer->next;
             try_consolidation = false;
           }
@@ -222,6 +222,10 @@ CASMappingTable<KeyType, ValueType, KeyComparator>::Install(uint64_t id, Node<Ke
 }
 template <typename KeyType, typename ValueType, class KeyComparator>
 pair<Node<KeyType, ValueType, KeyComparator>*, uint32_t> CASMappingTable<KeyType, ValueType, KeyComparator>::Get(uint64_t id) {
+  if (id ==0)
+  {
+    /* code */
+  }
   pair<Node<KeyType, ValueType, KeyComparator>*, uint32_t> dummy;
   return dummy;
 }
