@@ -17,6 +17,11 @@ namespace index {
 using namespace std; //SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
 
 template <typename KeyType, typename ValueType, class KeyComparator>
+BWTree<KeyType, ValueType, KeyComparator>::BWTree(KeyComparator kc) {
+
+}
+
+template <typename KeyType, typename ValueType, class KeyComparator>
 bool BWTree<KeyType, ValueType, KeyComparator>::Insert(
     KeyType key, ValueType value) {
 

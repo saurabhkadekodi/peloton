@@ -88,6 +88,7 @@ class BWTree {
   CASMappingTable<KeyType, ValueType, KeyComparator> table;
  // BWTree() {CASMappingTable<KeyType, ValueType, KeyComparator> b;
 BWTree() {}
+BWTree(KeyComparator kc);
  // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator> table) : table(table){}
   uint32_t min_node_size;
   uint32_t max_node_size;
