@@ -24,18 +24,30 @@ using namespace std;
 
 typedef uint64_t epoch_t;
 
-typedef enum node_type {
-  INTERNAL_BW_NODE,
-  LEAF_BW_NODE,
-  INSERT,
-  UPDATE,
-  DELETE,
-  SPLIT,
-  MERGE,
-  REMOVE,
-  SPLIT_INDEX,
-  REMOVE_INDEX
-} node_type_t;
+// typedef enum node_type {
+//   INTERNAL_BW_NODE,
+//   LEAF_BW_NODE,
+//   INSERT,
+//   UPDATE,
+//   DELETE,
+//   SPLIT,
+//   MERGE,
+//   REMOVE,
+//   SPLIT_INDEX,
+//   REMOVE_INDEX
+// } node_type_t;
+typedef int node_type_t;
+
+#define INTERNAL_BW_NODE 1
+#define LEAF_BW_NODE 2
+#define INSERT 3
+#define UPDATE 4
+#define DELETE 5
+#define SPLIT 6
+#define MERGE 7
+#define REMOVE 8
+#define SPLIT_INDEX 9
+#define REMOVE_INDEX 10
 
 template <typename KeyType, typename ValueType, class KeyComparator>
 class BWTree;

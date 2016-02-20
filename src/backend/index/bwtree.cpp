@@ -580,7 +580,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator>::Get_size(uint64_t id){
   //     break;
   while(node_pointer != nullptr)
   {
-    Node<KeyType, ValueType, KeyComparator>* simple_pointer = nullptr;
+    // Node<KeyType, ValueType, KeyComparator>* simple_pointer = nullptr;
     switch(node_pointer->type){
       case(INSERT):
         count++;
