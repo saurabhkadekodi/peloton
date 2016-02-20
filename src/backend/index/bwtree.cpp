@@ -125,22 +125,22 @@ BWTree<KeyType, ValueType, KeyComparator>::Search(KeyType key, uint64_t *path, u
   Node<KeyType, ValueType, KeyComparator>* simple_pointer = nullptr;
     switch(node_pointer->type){
       case(LEAF_BW_NODE):
-        LeafBWNode<KeyType, ValueType, KeyComparator>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
-        return leaf_pointer->id;
+{        LeafBWNode<KeyType, ValueType, KeyComparator>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
+        return leaf_pointer->id;}
         break;
       case(INTERNAL_BW_NODE):
-        InternalBWNode<KeyType, ValueType, KeyComparator>* internal_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
+{        InternalBWNode<KeyType, ValueType, KeyComparator>* internal_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
         prev_id = cur_id;
         cur_id = internal_pointer->Get_child_id(key);  
-        try_consolidation = true;
+        try_consolidation = true;}
         break;
       case(INSERT):
-        simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
+{        simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
         if(equals(*key, simple_pointer->key) && 
             find(deleted_keys.begin(), deleted_keys.end(), *key) == deleted_keys.end())
           return simple_pointer->id; 
         node_pointer = simple_pointer->next;
-        try_consolidation = false;
+        try_consolidation = false;}
         break;
       // case(UPDATE):
       //   DeltaNode *simple_pointer = (DeltaNode *)node_pointer;
@@ -151,15 +151,15 @@ BWTree<KeyType, ValueType, KeyComparator>::Search(KeyType key, uint64_t *path, u
       //   try_consolidation = false;
       //   break;
       case(DELETE):
-       simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
+{       simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
         if(equals(*key, simple_pointer->key))
           deleted_keys.push_back(*key);
         node_pointer = simple_pointer->next();
         try_consolidation = false;
-        return simple_pointer->id;
+        return simple_pointer->id;}
         break;
       case(SPLIT):
-        SplitDeltaNode<KeyType, ValueType, KeyComparator> *split_pointer = dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
+{        SplitDeltaNode<KeyType, ValueType, KeyComparator> *split_pointer = dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
         if(comparator(*key, split_pointer->key)){
           node_pointer = split_pointer->next;
           try_consolidation = false;
@@ -168,17 +168,17 @@ BWTree<KeyType, ValueType, KeyComparator>::Search(KeyType key, uint64_t *path, u
           prev_id = cur_id;
           cur_id = split_pointer->target_node_id;
           try_consolidation = true;
-        }
+        }}
         break;
       case(MERGE):
-        MergeDeltaNode<KeyType, ValueType, KeyComparator> *merge_pointer = dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
+{        MergeDeltaNode<KeyType, ValueType, KeyComparator> *merge_pointer = dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
         if(comparator(*key, merge_pointer->MergeKey)){
           node_pointer = merge_pointer->next;
         }
         else{
           node_pointer = merge_pointer->node_to_be_merged;
         }
-        try_consolidation = false;
+        try_consolidation = false;}
         break;
       case(REMOVE):
         cur_id = prev_id;
@@ -186,7 +186,7 @@ BWTree<KeyType, ValueType, KeyComparator>::Search(KeyType key, uint64_t *path, u
         // Should try to complete the SMO instead of going to the parent and waiting for the merge thread to complete it
         break;
       case(SPLIT_INDEX):
-        SplitIndexDeltaNode<KeyType, ValueType, KeyComparator> *split_index_pointer = dynamic_cast<SplitIndexDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer); 
+{        SplitIndexDeltaNode<KeyType, ValueType, KeyComparator> *split_index_pointer = dynamic_cast<SplitIndexDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer); 
         if(find(deleted_indexes.begin(), deleted_indexes.end(), split_index_pointer->split_key) == deleted_indexes.end()){
           if(comparator(*key, split_index_pointer->split_key) || !comparator(*key, split_index_pointer->boundary_key)){
             node_pointer = split_index_pointer->next;
@@ -201,12 +201,12 @@ BWTree<KeyType, ValueType, KeyComparator>::Search(KeyType key, uint64_t *path, u
         else{
           node_pointer = split_index_pointer->next;
           try_consolidation = false;
-        }
+        }}
         break;
       case(REMOVE_INDEX):
-        RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator> *delete_index_pointer = dynamic_cast<RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
+{        RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator> *delete_index_pointer = dynamic_cast<RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
         deleted_indexes.push_back(delete_index_pointer->deleted_key);
-        node_pointer = delete_index_pointer->next;
+        node_pointer = delete_index_pointer->next;}
         break;
     }
   }
@@ -592,16 +592,16 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator>::Get_size(uint64_t id){
       // case(UPDATE):
       //   break;
       case(LEAF_BW_NODE):
-        LeafBWNode<KeyType, ValueType, KeyComparator>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
+{        LeafBWNode<KeyType, ValueType, KeyComparator>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
         count += leaf_pointer->kv_list.size();
-        end = true;
+        end = true;}
         break;
       case(SPLIT):
         break;
       case(MERGE):
-        MergeDeltaNode<KeyType, ValueType, KeyComparator>* mdn = dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
+{        MergeDeltaNode<KeyType, ValueType, KeyComparator>* mdn = dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
         LeafBWNode<KeyType, ValueType, KeyComparator>* to_be_merged = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator>*>(mdn->node_to_be_merged);
-        count += to_be_merged->kv_list.size();
+        count += to_be_merged->kv_list.size();}
         break;
       case(REMOVE):
         return 0;
@@ -613,9 +613,9 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator>::Get_size(uint64_t id){
         count--;
         break;
       case(INTERNAL_BW_NODE):
-        InternalBWNode<KeyType, ValueType, KeyComparator>* internal_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
+{        InternalBWNode<KeyType, ValueType, KeyComparator>* internal_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
         count += internal_pointer->key_list.size();
-        end = true;
+        end = true;}
         break;
       default:
         break;
