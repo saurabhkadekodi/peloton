@@ -18,25 +18,18 @@
 namespace peloton {
 namespace index {
 
-CASMappingTable::CASMappingTable() {
-  return;
-}
-
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTreeIndex(
     IndexMetadata *metadata)
     : Index(metadata),
       equals(metadata),
       comparator(metadata) {
-  table = new CASMappingTable();
-  min_node_size = 4;
-  max_node_size = 8;
-  root = 0; // FIXME: maybe we need to change the initial pid of root?
+  // Add your implementation here
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::~BWTreeIndex() {
-  delete table;
+  // Add your implementation here
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
