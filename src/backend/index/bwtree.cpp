@@ -18,8 +18,24 @@ using namespace std; //SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
 
 template <typename KeyType, typename ValueType, class KeyComparator>
 BWTree<KeyType, ValueType, KeyComparator>::BWTree(KeyComparator kc) {
-
+if (true)
+{
+  return;
 }
+}
+
+template <typename KeyType, typename ValueType, class KeyComparator>
+bool BWTree<KeyType, ValueType, KeyComparator>::Consolidate(uint64_t id, bool force) {
+  if (id == 0)
+  {
+    if (force)
+    {
+      /* code */
+    }
+  }
+  return false;
+}
+
 
 template <typename KeyType, typename ValueType, class KeyComparator>
 bool BWTree<KeyType, ValueType, KeyComparator>::Insert(
@@ -196,7 +212,7 @@ BWTree<KeyType, ValueType, KeyComparator>::Search(KeyType key, uint64_t *path, u
   }
 
   // Add your implementation here
-  return nullptr;
+  return 0;
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator>

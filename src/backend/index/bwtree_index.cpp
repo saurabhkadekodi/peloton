@@ -15,7 +15,7 @@
 #include "backend/index/index_key.h"
 #include "backend/storage/tuple.h"
 #include "malloc.h"
-
+#include "bwtree.cpp"
 namespace peloton {
 namespace index {
 using namespace std;
@@ -24,7 +24,8 @@ template <typename KeyType, typename ValueType, class KeyComparator, class KeyEq
 BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTreeIndex(
     IndexMetadata *metadata)
     : Index(metadata),
-      equals(metadata),
+      container(KeyComparator(metadata)),
+      equals(metadata),      
       comparator(metadata) {
   // Add your implementation here
 }
