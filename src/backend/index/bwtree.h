@@ -96,7 +96,8 @@ template <typename KeyType, typename ValueType, typename KeyComparator, typename
 class BWTree {
   // friend class BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>;
  public:
-  KeyComparator, KeyEqualityChecker comparator;
+  KeyComparator comparator;
+  KeyEqualityChecker equals;
   CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table;
  // BWTree() {CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> b;
 BWTree() {}
