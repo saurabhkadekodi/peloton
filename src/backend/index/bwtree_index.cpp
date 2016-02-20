@@ -55,7 +55,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(cur_pointer);
 
 
-  uint64_t cur_node_size = leaf_pointer->Get_size();
+  uint64_t cur_node_size = Get_size(node_id);
   if(cur_node_size < max_node_size){
     return leaf_pointer->Insert(key, location);
   }
@@ -67,18 +67,31 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(KeyType key, ValueType value) {
-  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = Search(key);
-assert(leaf_pointer -> type == LEAF_BW_NODE);
-  LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
+
+  uint64_t *path = (uint64_t *)malloc(sizeof(uint64_t) * tree_height);
+  uint64_t location;
+  uint64_t node_id = Search(key, path, location);
+  
+  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *, uint32_t> node_ = table.Get(node_id);
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_pointer = node_.first;
+  uint32_t chain_len = node_.second;
 
 
-        uint64_t cur_node_size = leaf_pointer->Get_size();
-                if(cur_node_size > min_node_size){
-          return leaf_pointer->Delete(key, value);
-        }
-        else{
-          // return leaf_pointer->Merge_node(cur_id, path, index, prev_id, key, value); 
-        }
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *cur_pointer = node_pointer;
+  while(cur_pointer->next)
+    cur_pointer = cur_pointer->next;
+
+  LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(cur_pointer);
+
+
+  uint64_t cur_node_size = Get_size(node_id);
+  if(cur_node_size > min_node_size){
+    return leaf_pointer->Delete(key, location);
+  }
+  else{
+    return leaf_pointer->Merge_node(path, location, key, value);
+  }
+  return false;
 }
 
 
