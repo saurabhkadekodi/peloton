@@ -57,8 +57,9 @@ class Node {
 
 public:
   epoch_t generation;
-  uint64_t id;
   const BWTree<KeyType, ValueType, KeyComparator>& my_tree; // reference of the tree I belong to
+  uint64_t id;
+  node_type_t type;
   Node<KeyType, ValueType, KeyComparator> *next;
   Node(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id, node_type_t type) :
   my_tree(bwt), id(id), type(type) {
@@ -68,8 +69,6 @@ public:
     next -> ~Node();
   }
   virtual bool Consolidate();
-public:
-  node_type_t type;
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator>
@@ -81,9 +80,9 @@ class CASMappingTable {
   uint64_t cur_max_id;
   public:
   CASMappingTable() : cur_max_id(1) {};
-  bool Install(uint64_t id, Node<KeyType, ValueType, KeyComparator>* node_ptr, uint32_t chain_length); // install into mapping table via compare and swap
-  pair<NodeType*, uint32_t> Get(uint64_t id);
-  uint64_t Get_next_id();
+  bool Install(uint64_t id, Node<KeyType, ValueType, KeyComparator>* node_ptr, uint32_t chain_length)const; // install into mapping table via compare and swap
+  pair<NodeType*, uint32_t> Get (uint64_t id) const;
+  uint64_t Get_next_id()const;
 };
 
 // Look up the stx btree interface for background.
@@ -115,7 +114,7 @@ BWTree(KeyComparator kc) : comparator(kc) {}
   bool Insert(KeyType key, ValueType value);
   bool Delete(KeyType key, ValueType value);
   uint64_t Search(KeyType key, uint64_t *path, uint64_t &location);
-  uint64_t Get_size(uint64_t id);
+  uint64_t Get_size(uint64_t id) const ;
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator>
