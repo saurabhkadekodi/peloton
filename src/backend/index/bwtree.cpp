@@ -16,7 +16,7 @@ namespace peloton {
 namespace index {
 using namespace std; //SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
 
-// template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+// template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 // BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTree(KeyComparator, KeyEqualityChecker kc) {
 // if (true)
 // {
@@ -25,7 +25,7 @@ using namespace std; //SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
 // }
 
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Install(uint64_t id, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr, uint32_t chain_length){
 
 	if(chain_length == 0){
@@ -50,13 +50,13 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Ins
 
 
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 pair<NodeType*, uint32_t> CASMappingTable::Get (uint64_t id){
 	return cas_mapping_table[id];
 }
 
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 uint64_t CASMappingTable::Get_next_id (uint64_t id){
 	uint64_t old_val = cur_max_id;
 	uint64_t new_val = old_val + 1;
@@ -70,7 +70,7 @@ uint64_t CASMappingTable::Get_next_id (uint64_t id){
 }
 
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(uint64_t id, bool force) {
   if (id == 0)
   {
@@ -83,7 +83,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
   return false;
 }
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_root(uint64_t split_key, uint64_t left_pointer, uint64_t right_pointer) {
 	uint64_t new_root_id = this->table.Get_next_id();
 	uint64_t old_root_id = root;
@@ -97,7 +97,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_root(u
 	return __sync_bool_compare_and_swap(&root, old_root_id, new_root_id);
 }
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 vector<ValueType> BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search_key(KeyType key) {
   vector<ValueType> ret_vector;
 	uint64_t *path = (uint64_t *)malloc(tree_height * sizeof(uint64_t));
@@ -167,7 +167,7 @@ vector<ValueType> BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>:
   return ret_vector;
 }
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
     KeyType key, ValueType value) {
 
@@ -198,7 +198,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   return false;
 }
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(KeyType key, ValueType value) {
 
   uint64_t *path = (uint64_t *)malloc(sizeof(uint64_t) * tree_height);
@@ -228,7 +228,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(KeyTy
 }
 
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 uint64_t 
 BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(KeyType key, uint64_t *path, uint64_t &location) {
   uint64_t cur_id = root;
@@ -351,7 +351,7 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(KeyType ke
   return 0;
 }
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool
 CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Install(uint64_t id, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr, uint32_t chain_length) const {
   id++;
@@ -359,7 +359,7 @@ CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Install(
   chain_length++;
   return false;
 }
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get(uint64_t id) const {
   if (id ==0)
   {
@@ -368,12 +368,12 @@ pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> CAS
   pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> dummy;
   return dummy;
 }
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 uint64_t CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_next_id() const {
   return 0;
 }
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_insert(KeyType key, ValueType value){
   DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* delta = 
   new DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, this->id, INSERT);
@@ -386,7 +386,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_ins
   return result;
 }
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_delete(KeyType key, ValueType value){
   DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* delta = 
   new DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, this->id, DELETE);
@@ -400,7 +400,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_del
 }
 
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_split(uint64_t *path, uint64_t index, KeyType key, ValueType value){
   bool result = this->my_tree.Consolidate(this->id, true);
   if (!result)
@@ -477,7 +477,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_spl
   return false;
 }
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Internal_merge(uint64_t *path, uint64_t index, KeyType merge_key){
 	 bool ret_val = this->my_tree.Consolidate(this->id, true);
   if (!ret_val)
@@ -616,7 +616,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
   }
 }
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_merge(uint64_t *path, uint64_t index, KeyType key, ValueType value){
   bool ret_val = this->my_tree.Consolidate(this->id, true);
   if (!ret_val)
@@ -794,7 +794,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_mer
   */
 }
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(){
   pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
 
@@ -851,7 +851,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolid
   return result;
 }
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_size(uint64_t id) const {
   pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = table.Get(id);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = node_.first;
@@ -918,7 +918,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_size
   return count;
 }
   
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Internal_insert(KeyType split_key, KeyType boundary_key, uint64_t new_node_id){
   pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = node_.first;
@@ -932,7 +932,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
   
 }
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Internal_split(uint64_t *path, uint64_t index, 
     KeyType split_key, KeyType boundary_key, uint64_t new_node_id){
 
@@ -1008,7 +1008,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
   return ret_val;
  
 }
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 uint64_t InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_child_id(KeyType key) {
 	//TODO: We need to find the correct child id
 	typename multimap<KeyType, uint64_t, KeyComparator, KeyEqualityChecker>::iterator iter = key_list.rbegin();
@@ -1024,7 +1024,7 @@ uint64_t InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 
 } 
 
-template <typename KeyType, typename ValueType, typename KeyComparator, KeyEqualityChecker, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Internal_delete(KeyType merged_key){
 
 	pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
@@ -1035,6 +1035,44 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
 	uint32_t chain_len = node_.second;
 	return this->my_tree.table.Install(this->id, remove_index, chain_len+1);
 }
+// Explicit template instantiations
+
+template class BWTree<IntsKey<1>, ItemPointer, IntsComparator<1>,
+IntsEqualityChecker<1>>;
+template class BWTree<IntsKey<2>, ItemPointer, IntsComparator<2>,
+IntsEqualityChecker<2>>;
+template class BWTree<IntsKey<3>, ItemPointer, IntsComparator<3>,
+IntsEqualityChecker<3>>;
+template class BWTree<IntsKey<4>, ItemPointer, IntsComparator<4>,
+IntsEqualityChecker<4>>;
+
+template class BWTree<GenericKey<4>, ItemPointer, GenericComparator<4>,
+GenericEqualityChecker<4>>;
+template class BWTree<GenericKey<8>, ItemPointer, GenericComparator<8>,
+GenericEqualityChecker<8>>;
+template class BWTree<GenericKey<12>, ItemPointer, GenericComparator<12>,
+GenericEqualityChecker<12>>;
+template class BWTree<GenericKey<16>, ItemPointer, GenericComparator<16>,
+GenericEqualityChecker<16>>;
+template class BWTree<GenericKey<24>, ItemPointer, GenericComparator<24>,
+GenericEqualityChecker<24>>;
+template class BWTree<GenericKey<32>, ItemPointer, GenericComparator<32>,
+GenericEqualityChecker<32>>;
+template class BWTree<GenericKey<48>, ItemPointer, GenericComparator<48>,
+GenericEqualityChecker<48>>;
+template class BWTree<GenericKey<64>, ItemPointer, GenericComparator<64>,
+GenericEqualityChecker<64>>;
+template class BWTree<GenericKey<96>, ItemPointer, GenericComparator<96>,
+GenericEqualityChecker<96>>;
+template class BWTree<GenericKey<128>, ItemPointer, GenericComparator<128>,
+GenericEqualityChecker<128>>;
+template class BWTree<GenericKey<256>, ItemPointer, GenericComparator<256>,
+GenericEqualityChecker<256>>;
+template class BWTree<GenericKey<512>, ItemPointer, GenericComparator<512>,
+GenericEqualityChecker<512>>;
+
+template class BWTree<TupleKey, ItemPointer, TupleKeyComparator,
+TupleKeyEqualityChecker>;
 
 
 // Add your function definitions here
