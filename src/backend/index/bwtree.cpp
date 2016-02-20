@@ -924,11 +924,17 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator>::Internal_split(uint64_t 
 template <typename KeyType, typename ValueType, class KeyComparator>
 uint64_t InternalBWNode<KeyType, ValueType, KeyComparator>::Get_child_id(KeyType key) {
 	//TODO: We need to find the correct child id
-	typename multimap<KeyType, uint64_t, KeyComparator>::iterator iter = key_list.find(key);
-	if(iter == key_list.end()){
-		return rightmost_pointer;
-	}
-	return iter->second;
+	typename multimap<KeyType, uint64_t, KeyComparator>::iterator iter = key_list.rbegin();
+  for(;iter!=key_list.rend();iter++) {
+    if (comparator(key, iter -> first))
+    {
+     return  iter -> second;
+    }
+  }
+	if(iter == key_list.rend()){
+		return leftmost_pointer;
+	 return 0;
+
 } 
 
 template <typename KeyType, typename ValueType, class KeyComparator>
