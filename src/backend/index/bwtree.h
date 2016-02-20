@@ -127,10 +127,10 @@ class InternalBWNode : public Node<KeyType, ValueType, KeyComparator> {
   uint64_t high;
   InternalBWNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id) :
   Node<KeyType, ValueType, KeyComparator>(bwt, id, INTERNAL_BW_NODE) {}
-  bool Insert(KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
-  bool Split(uint64_t *path, uint64_t index, KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
-  bool Delete(KeyType merged_key); 
-  bool Merge(uint64_t *path, uint64_t index, KeyType deleted_key);
+  bool Internal_insert(KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
+  bool Internal_split(uint64_t *path, uint64_t index, KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
+  bool Internal_delete(KeyType merged_key); 
+  bool Internal_merge(uint64_t *path, uint64_t index, KeyType deleted_key);
   uint64_t Get_child_id(KeyType key);
 };
 
@@ -144,10 +144,10 @@ class LeafBWNode : public Node<KeyType, ValueType, KeyComparator> {
   uint64_t high;
   LeafBWNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id) :
   Node<KeyType, ValueType, KeyComparator>(bwt, id, LEAF_BW_NODE) {}
-  bool Insert(KeyType key, ValueType value);
-  bool Delete(KeyType key, ValueType value);
-  bool Split_node(uint64_t *path, uint64_t index, KeyType key, ValueType value);
-  bool Merge_node(uint64_t *path, uint64_t index, KeyType key, ValueType value);
+  bool Leaf_insert(KeyType key, ValueType value);
+  bool Leaf_delete(KeyType key, ValueType value);
+  bool Leaf_split(uint64_t *path, uint64_t index, KeyType key, ValueType value);
+  bool Leaf_merge(uint64_t *path, uint64_t index, KeyType key, ValueType value);
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator>
