@@ -80,9 +80,9 @@ class CASMappingTable {
   uint64_t cur_max_id;
   public:
   CASMappingTable() : cur_max_id(1) {};
-  bool Install(uint64_t id, Node<KeyType, ValueType, KeyComparator>* node_ptr, uint32_t chain_length)const; // install into mapping table via compare and swap
+  bool Install(uint64_t id, Node<KeyType, ValueType, KeyComparator>* node_ptr, uint32_t chain_length); // install into mapping table via compare and swap
   pair<NodeType*, uint32_t> Get (uint64_t id) const;
-  uint64_t Get_next_id()const;
+  uint64_t Get_next_id();
 };
 
 // Look up the stx btree interface for background.
@@ -121,7 +121,7 @@ template <typename KeyType, typename ValueType, class KeyComparator>
 class InternalBWNode : public Node<KeyType, ValueType, KeyComparator> {
   public:
   multimap<KeyType, uint64_t, KeyComparator> key_list; // all keys have children
-  uint64_t rightmost_pointer;
+  uint64_t leftmost_pointer;
   uint64_t sibling_id;
   uint64_t low;
   uint64_t high;
