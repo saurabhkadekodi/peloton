@@ -107,13 +107,16 @@ BWTree(KeyComparator kc) : comparator(kc) {}
   uint64_t tree_height;
   uint64_t root; // root points to an id in the mapping table
   bool Consolidate(uint64_t id, bool force); // id is that of the mapping table entry
-  // bool MergeNodes(uint64_t n1, uint64_t n2){return false;} // saurabh
+  bool Split_root(uint64_t split_key, uint64_t left_pointer, uint64_t right_pointer);
   //NodeType * CreateNode(uint64_t id, node_type_t t){return nullptr;} // for creating when consolidating
   //bool DeleteNode(uint64_t id){return false;}
   // tianyuan - GC and the epoch mechanism
   bool Insert(KeyType key, ValueType value);
   bool Delete(KeyType key, ValueType value);
   uint64_t Search(KeyType key, uint64_t *path, uint64_t &location);
+  vector<ValueType> Search_key(KeyType key);
+  vector<ValueType> Search_all_keys();
+  vector<ValueType> Search_range(KeyType low, KeyType high);
   uint64_t Get_size(uint64_t id) const ;
 };
 
@@ -131,6 +134,7 @@ class InternalBWNode : public Node<KeyType, ValueType, KeyComparator> {
   bool Internal_split(uint64_t *path, uint64_t index, KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
   bool Internal_delete(KeyType merged_key); 
   bool Internal_merge(uint64_t *path, uint64_t index, KeyType deleted_key);
+  bool Consolidate();
   uint64_t Get_child_id(KeyType key);
 };
 
@@ -148,6 +152,7 @@ class LeafBWNode : public Node<KeyType, ValueType, KeyComparator> {
   bool Leaf_delete(KeyType key, ValueType value);
   bool Leaf_split(uint64_t *path, uint64_t index, KeyType key, ValueType value);
   bool Leaf_merge(uint64_t *path, uint64_t index, KeyType key, ValueType value);
+  bool Consolidate();
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator>
@@ -155,7 +160,6 @@ class DeltaNode : public Node<KeyType, ValueType, KeyComparator> {
   public:
   KeyType key;
   ValueType value;
-  bool Consolidate();
   DeltaNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id, node_type_t type) :
   Node<KeyType, ValueType, KeyComparator>(bwt, id, type) {} // Default is INSERT type
 };

@@ -795,60 +795,60 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator>::Leaf_merge(uint64_t *path, u
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator>
-bool DeltaNode<KeyType, ValueType, KeyComparator>::Consolidate(){
+bool LeafBWNode<KeyType, ValueType, KeyComparator>::Consolidate(){
+  pair<Node<KeyType, ValueType, KeyComparator>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
 
-  // uint64_t new_id = this->my_tree.table -> Get_next_id();
-  // LeafBWNode<KeyType, ValueType, KeyComparator> *new_leaf_node = new LeafBWNode<KeyType, ValueType, KeyComparator>(this->my_tree, new_id);
-  // multiset<KeyType, KeyComparator> insert_set;
-  // multiset<KeyType, KeyComparator> delete_set;
-  // DeltaNode<KeyType, ValueType, KeyComparator> *temp = this;
-  // LeafBWNode<KeyType, ValueType, KeyComparator> *leaf_node = nullptr;
-  // bool stop = false;
-  // while (!stop) {
-  //   if (temp -> type == DELETE)
-  //   {
-  //     delete_set.insert(temp -> key);
-  //   } else if (temp -> type == INSERT) {
-  //     insert_set.insert(temp -> key);
-  //   }
-  //   if (temp -> next -> type == LEAF_BW_NODE) {
-  //     leaf_node = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator>*>(temp -> next);
-  //     stop = true;
-  //   } else {
-  //     temp = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator> *>(temp -> next);
-  //   }
-  // }
-  // assert(leaf_node!= nullptr);
-  // while (!insert_set.empty()) {
-  //   typename multiset<KeyType, KeyComparator>::iterator it = insert_set.begin();
-  //   KeyType key = *it;
-  //   typename multiset<KeyType, KeyComparator>::iterator dit = delete_set.find(key);
-  //   if (dit == delete_set.end())
-  //   {
-  //     leaf_node.kv_list.insert(key);
-  //   } else {
-  //     delete_set.erase(dit);
-  //   }
-  //   insert_set.erase(it);
-  // }
-  // while(!delete_set.empty()) {
-  //   typename multiset<KeyType, KeyComparator>::iterator dit = delete_set.begin();
-  //   KeyType key = *dit;
-  //   typename multiset<KeyType, KeyComparator>::iterator it = leaf_node.kv_list.find(key);
-  //   if (it != this->kv_list.end())
-  //   {
-  //     this->kv_list.erase(it);
-  //   } 
-  //   delete_set.erase(dit);
-  // }
-  // while(!leaf_node.kv_list.empty()) {
-  //   typename multiset<KeyType, KeyComparator>::iterator it = leaf_node.kv_list.begin();
-  //   new_leaf_node->kv_list.insert(*it);
-  //   leaf_node.kv_list.erase(it);
-  // }
-  // bool result = this->my_tree.table.Install(new_id, new_leaf_node, 1);   // TODO: what is the correct chain length?
-  // return result;
-return false;
+  uint64_t new_id = this->my_tree.table -> Get_next_id();
+  LeafBWNode<KeyType, ValueType, KeyComparator> *new_leaf_node = new LeafBWNode<KeyType, ValueType, KeyComparator>(this->my_tree, new_id);
+  multiset<KeyType, KeyComparator> insert_set;
+  multiset<KeyType, KeyComparator> delete_set;
+  DeltaNode<KeyType, ValueType, KeyComparator> *temp = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator> *>(node_.first);
+  LeafBWNode<KeyType, ValueType, KeyComparator> *leaf_node = this;
+  bool stop = false;
+  while (!stop) {
+    if (temp -> type == DELETE)
+    {
+      delete_set.insert(temp -> key);
+    } else if (temp -> type == INSERT) {
+      insert_set.insert(temp -> key);
+    }
+    if (temp -> next -> type == LEAF_BW_NODE) {
+      stop = true;
+    } else {
+      temp = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator> *>(temp -> next);
+    }
+  }
+  assert(leaf_node!= nullptr);
+  while (!insert_set.empty()) {
+    typename multiset<KeyType, KeyComparator>::iterator it = insert_set.begin();
+    KeyType key = *it;
+    typename multiset<KeyType, KeyComparator>::iterator dit = delete_set.find(key);
+    if (dit == delete_set.end())
+    {
+      leaf_node.kv_list.insert(key);
+    } else {
+      delete_set.erase(dit);
+    }
+    insert_set.erase(it);
+  }
+  // there can be multiple delete key deltas
+  while(!delete_set.empty()) {
+    typename multiset<KeyType, KeyComparator>::iterator dit = delete_set.begin();
+    KeyType key = *dit;
+    typename multiset<KeyType, KeyComparator>::iterator it = leaf_node.kv_list.find(key);
+    if (it != this->kv_list.end())
+    {
+      this->kv_list.erase(it);
+    } 
+    delete_set.erase(dit);
+  }
+  while(!leaf_node.kv_list.empty()) {
+    typename multiset<KeyType, KeyComparator>::iterator it = leaf_node.kv_list.begin();
+    new_leaf_node->kv_list.insert(*it);
+    leaf_node.kv_list.erase(it);
+  }
+  bool result = this->my_tree.table.Install(new_id, new_leaf_node, 1);   // TODO: what is the correct chain length?
+  return result;
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator>
