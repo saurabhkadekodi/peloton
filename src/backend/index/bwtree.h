@@ -134,6 +134,7 @@ class InternalBWNode : public Node<KeyType, ValueType, KeyComparator> {
   bool Internal_split(uint64_t *path, uint64_t index, KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
   bool Internal_delete(KeyType merged_key); 
   bool Internal_merge(uint64_t *path, uint64_t index, KeyType deleted_key);
+  bool Consolidate();
   uint64_t Get_child_id(KeyType key);
 };
 
@@ -151,6 +152,7 @@ class LeafBWNode : public Node<KeyType, ValueType, KeyComparator> {
   bool Leaf_delete(KeyType key, ValueType value);
   bool Leaf_split(uint64_t *path, uint64_t index, KeyType key, ValueType value);
   bool Leaf_merge(uint64_t *path, uint64_t index, KeyType key, ValueType value);
+  bool Consolidate();
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator>
@@ -158,7 +160,6 @@ class DeltaNode : public Node<KeyType, ValueType, KeyComparator> {
   public:
   KeyType key;
   ValueType value;
-  bool Consolidate();
   DeltaNode(const BWTree<KeyType, ValueType, KeyComparator>& bwt, uint64_t id, node_type_t type) :
   Node<KeyType, ValueType, KeyComparator>(bwt, id, type) {} // Default is INSERT type
 };
