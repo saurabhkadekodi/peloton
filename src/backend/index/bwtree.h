@@ -114,6 +114,9 @@ BWTree(KeyComparator kc) : comparator(kc) {}
   bool Insert(KeyType key, ValueType value);
   bool Delete(KeyType key, ValueType value);
   uint64_t Search(KeyType key, uint64_t *path, uint64_t &location);
+  vector<ValueType> Search_key(KeyType key);
+  vector<ValueType> Search_all_keys();
+  vector<ValueType> Search_range(KeyType low, KeyType high);
   uint64_t Get_size(uint64_t id) const ;
 };
 
