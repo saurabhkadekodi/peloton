@@ -83,6 +83,89 @@ bool BWTree<KeyType, ValueType, KeyComparator>::Consolidate(uint64_t id, bool fo
   return false;
 }
 
+template <typename KeyType, typename ValueType, class KeyComparator>
+bool BWTree<KeyType, ValueType, KeyComparator>::Split_root(uint64_t split_key, uint64_t left_pointer, uint64_t right_pointer) {
+	uint64_t new_root_id = this->table.Get_next_id();
+	uint64_t old_root_id = root;
+	InternalBWNode<KeyType, ValueType, KeyComparator>* internal_pointer = new InternalBWNode<KeyType, ValueType, KeyComparator>(this, new_root_id);
+	internal_pointer->leftmost_pointer = left_pointer;
+	internal_pointer->key_list.insert(pair<KeyType, uint64_t>(split_key, right_pointer));
+	internal_pointer->sibling_id = 0;
+	table.Install(new_root_id, internal_pointer, 0);
+	//TODO: Need to handle race conditions here
+	tree_height++;
+	return __sync_bool_compare_and_swap(&root, old_root_id, new_root_id);
+}
+
+template <typename KeyType, typename ValueType, class KeyComparator>
+vector<ValueType> BWTree<KeyType, ValueType, KeyComparator>::Search_key(KeyType key) {
+  vector<ValueType> ret_vector;
+	uint64_t *path = (uint64_t *)malloc(tree_height * sizeof(uint64_t));
+	uint64_t location;
+	uint64_t node_id = Search(key, path, location);
+	pair<Node<KeyType, ValueType, KeyComparator> *, uint32_t> node_ = table.Get(node_id);
+  Node<KeyType, ValueType, KeyComparator> *node_pointer = node_.first;
+  vector<pair<KeyType, ValueType> > deleted_keys;
+  while(node_pointer){
+    switch(node_pointer->type){
+      case(INSERT):
+      {      
+        DeltaNode<KeyType, ValueType, KeyComparator>* simple_pointer = nullptr;
+        simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
+        if(equals(key, simple_pointer->key) && find(deleted_keys.begin(), deleted_keys.end(), pair<KeyType, ValueType>(simple_pointer->key, simple_pointer->value)) == deleted_keys.end()){
+          ret_vector.push_back(simple_pointer->value);
+        }
+      }
+      break;
+      case(DELETE):
+      {
+        DeltaNode<KeyType, ValueType, KeyComparator>* simple_pointer = nullptr;
+        simple_pointer = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
+        deleted_keys.push_back(pair<KeyType, ValueType>(simple_pointer->key, simple_pointer->value));
+      }
+      break;
+      case(SPLIT):
+      {
+        SplitDeltaNode<KeyType, ValueType, KeyComparator> *split_pointer = nullptr;
+        split_pointer = dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
+        //It should never be the case that we need to go to the right side of a split pointer
+        //That would have been done be the search function which would give us the correct id
+        //Hence we just need to continue to the next node in this delta chain
+      }
+      break;
+      case(MERGE):
+      {
+        SplitDeltaNode<KeyType, ValueType, KeyComparator> *merge_pointer = nullptr;
+        merge_pointer = dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
+        if(!comparator(key, merge_pointer->merge_key)){
+          node_pointer = merge_pointer->node_to_be_merged;
+          continue;
+        }
+      }
+      break;
+      case(LEAF_BW_NODE):
+      {
+        LeafBWNode<KeyType, ValueType, KeyComparator> *leaf_pointer = nullptr;
+        leaf_pointer = dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator>*>(node_pointer);
+                
+        pair<typename multimap<KeyType, ValueType>::iterator, typename multimap<KeyType, ValueType>::iterator> values= leaf_pointer->kv_list.equal_range(key);
+        typename multimap<KeyType, ValueType, KeyComparator>::iterator iter;
+        for(iter=values.first;iter!=values.second;iter++){
+          if(find(deleted_keys.begin(), deleted_keys.end(), pair<KeyType, ValueType>(iter->first, iter->second)) == deleted_keys.end()){
+          ret_vector.push_back(iter->second);
+          }
+        }    
+      }
+      break;
+      default:
+      //This should never occur
+      break;
+    }
+
+    node_pointer = node_pointer->next;
+  }
+  return ret_vector;
+}
 
 template <typename KeyType, typename ValueType, class KeyComparator>
 bool BWTree<KeyType, ValueType, KeyComparator>::Insert(
@@ -385,7 +468,11 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator>::Leaf_split(uint64_t *path, u
 	  return ret_val;
   }
   else{
-	//TODO: SplitRoot
+	ret_val = my_tree.Split_root(split_key, this.id, new_node_id);
+	if(!ret_val){
+		//TODO: Figure out what to do if splot_root fails
+	}
+	return ret_val;
   }
   return false;
 }
@@ -458,7 +545,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator>::Internal_merge(uint64_t 
     InternalBWNode<KeyType, ValueType, KeyComparator>* parent_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator>*>(cur_pointer);
 
     uint64_t parent_size = parent_pointer->Get_size();
-    if(parent_size - 1 > this->my_tree.min_node_size)
+    if(parent_size - 1 > this->my_tree.min_node_size || index == 0)
       ret_val = parent_pointer->Internal_delete(merge_node->merge_key);
     else
       ret_val = parent_pointer->Internal_merge(path, index - 1, merge_node->merge_key);
@@ -521,7 +608,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator>::Internal_merge(uint64_t 
     InternalBWNode<KeyType, ValueType, KeyComparator>* parent_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator>*>(cur_pointer);
 
     uint64_t parent_size = parent_pointer->Get_size();
-    if(parent_size - 1 > this->my_tree.min_node_size)
+    if(parent_size - 1 > this->my_tree.min_node_size || index == 0)
       ret_val = parent_pointer->Internal_delete(merge_node->merge_key);
     else
       ret_val = parent_pointer->Internal_merge(path, index - 1, merge_node->merge_key);
@@ -603,7 +690,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator>::Leaf_merge(uint64_t *path, u
 		InternalBWNode<KeyType, ValueType, KeyComparator>* parent_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator>*>(cur_pointer);
 
 		uint64_t parent_size = parent_pointer->Get_size();
-		if(parent_size - 1 > this->my_tree.min_node_size)
+		if(parent_size - 1 > this->my_tree.min_node_size || index == 0)
 			ret_val = parent_pointer->Internal_delete(merge_node->merge_key);
 		else
 			ret_val = parent_pointer->Internal_merge(path, index - 1, merge_node->merge_key);
@@ -666,7 +753,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator>::Leaf_merge(uint64_t *path, u
 		InternalBWNode<KeyType, ValueType, KeyComparator>* parent_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator>*>(cur_pointer);
 
 		uint64_t parent_size = parent_pointer->Get_size();
-		if(parent_size - 1 > this->my_tree.min_node_size)
+		if(parent_size - 1 > this->my_tree.min_node_size || index == 0)
 			ret_val = parent_pointer->Internal_delete(merge_node->merge_key);
 		else
 			ret_val = parent_pointer->Internal_merge(path, index - 1, merge_node->merge_key);
