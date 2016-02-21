@@ -94,7 +94,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_root(K
 	internal_pointer->leftmost_pointer = left_pointer;
 	internal_pointer->key_list.insert(pair<KeyType, uint64_t>(split_key, right_pointer));
 	internal_pointer->sibling_id = 0;
-	table.Install(new_root_id, internal_pointer, 0);
+	internal_pointer->chain_len = 0;
+	table.Install(new_root_id, internal_pointer);
 	//TODO: Need to handle race conditions here
 	tree_height++;
 	return __sync_bool_compare_and_swap(&root, old_root_id, new_root_id);
@@ -166,7 +167,7 @@ vector<ValueType> BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>:
         typename multimap<KeyType, ValueType, KeyComparator>::iterator iter;
         for(iter=values.first;iter!=values.second;iter++){
 			bool push = true;
-			pair<typename multimap<KeyType, ValueType>::iterator, typename multimap<KeyType, ValueType>::iterator> deleted_values= deleted_keys.equal_range(simple_pointer->key);
+			pair<typename multimap<KeyType, ValueType>::iterator, typename multimap<KeyType, ValueType>::iterator> deleted_values= deleted_keys.equal_range(key);
 			typename multimap<KeyType, ValueType, KeyComparator>::iterator deleted_iter;
 			for(deleted_iter=deleted_values.first;deleted_iter!=deleted_values.second;deleted_iter++){
 				//if(deleted_iter->second = iter->second){
@@ -199,8 +200,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   uint64_t node_id = Search(key, path, location);
   // TODO Check whether duplicated are allowed
   
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *, uint32_t> node_ = table.Get(node_id);
-  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_pointer = node_.first;
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_pointer = table.Get(node_id);
+  //Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_pointer = node_.first;
   // uint32_t chain_len = node_.second;
 
 
@@ -225,8 +226,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(KeyTy
   uint64_t location;
   uint64_t node_id = Search(key, path, location);
   
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *, uint32_t> node_ = table.Get(node_id);
-  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_pointer = node_.first;
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_pointer = table.Get(node_id);
+  //Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_pointer = node_.first;
   // uint32_t chain_len = node_.second;
 
 
@@ -263,9 +264,7 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(KeyType ke
   while(!stop){
     if(try_consolidation){
       Consolidate(cur_id, false);
-      // pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = table.get(cur_id); 
-      pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_;
-      node_pointer = node_.first;
+      node_pointer = table.get(cur_id); 
       // uint32_t chain_length = node_.second;
       deleted_keys.clear();
       deleted_indexes.clear();
@@ -495,8 +494,8 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
 	if(this->sibling_id != 0){
 		neighbour_node_id = this->sibling_id;
 		this->my_tree.Consolidate(neighbour_node_id, true);
-		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> n_node_ = this->my_tree.table.Get(neighbour_node_id);
-		InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n_node_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(n_node_.first);
+		Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *n_node_ = this->my_tree.table.Get(neighbour_node_id);
+		InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n_node_pointer = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(n_node_);
 		uint64_t total_count = this->my_tree.Get_size(this->id) + this->my_tree.Get_size(neighbour_node_id);
 		if(total_count > this->my_tree.max_node_size){
 			//Redistribute
@@ -515,17 +514,19 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
 			RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* remove_node = new RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, neighbour_node_id);
 			remove_node->next = n_node_pointer;
 			// TODO: remove node should have a left logical pointer
-			uint32_t chain_len = n_node_.second;
-			ret_val = this->my_tree.table.Install(neighbour_node_id, remove_node, chain_len+1);
+			uint32_t chain_len = n_node_pointer->chain_len;
+			remove_node->chain_len = chain_len + 1;
+			ret_val = this->my_tree.table.Install(neighbour_node_id, remove_node);
 			if(!ret_val)
 				return false;
-			pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
+			Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_ = this->my_tree.table.Get(this->id);
 			MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* merge_node = new MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, this->id);
 			merge_node->node_to_be_merged = n_node_pointer;
-			merge_node->next = node_.first;
-			uint32_t my_chain_len = node_.second;
+			merge_node->next = node_;
+			uint32_t my_chain_len = node_->chain_len;
 			merge_node->merge_key = n_node_pointer->key_list.begin()->first;
-			ret_val = this->my_tree.table.Install(this->id, merge_node, my_chain_len+1);
+			merge_node->chain_len = my_chain_len + 1;
+			ret_val = this->my_tree.table.Install(this->id, merge_node);
 			if(!ret_val)
 				return false;
 			uint64_t parent_id = path[index-1];
@@ -565,12 +566,13 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
 			KeyType new_split_key = this->key_list.begin()->first;
 		}
 		else{
-			pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
+			Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_ = this->my_tree.table.Get(this->id);
 			RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* remove_node = new RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, this->id);
-			remove_node->next = node_.first;
+			remove_node->next = node_;
 
-			uint32_t chain_len = node_.second;
-			ret_val = this->my_tree.table.Install(this->id, remove_node, chain_len+1);
+			uint32_t chain_len = node_->chain_len;
+			remove_node->chain_len = chain_len + 1;
+			ret_val = this->my_tree.table.Install(this->id, remove_node);
 			if(!ret_val)
 				return false;
 
@@ -578,9 +580,10 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
 			MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* merge_node = new MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, neighbour_node_id);
 			merge_node->node_to_be_merged = node_pointer;
 			merge_node->next = n_node_pointer;
-			uint32_t neighbour_chain_len = n_node_.second;
+			uint32_t neighbour_chain_len = n_node_pointer->chain_len;
 			merge_node->merge_key = node_pointer->key_list.begin()->first;
-			ret_val = this->my_tree.table.Install(neighbour_node_id, merge_node, neighbour_chain_len+1);
+			merge_node->chain_len = neighbour_chain_len + 1;
+			ret_val = this->my_tree.table.Install(neighbour_node_id, merge_node);
 			if(!ret_val)
 				return false;
 
@@ -912,15 +915,15 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_size
   
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Internal_insert(KeyType split_key, KeyType boundary_key, uint64_t new_node_id){
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
-  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = node_.first;
+  Node<KeyType, ValueType, KeyComparator, KeyEquaityChecker> *node_pointer = this->my_tree.table.Get(this->id);
   SplitIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *split_index = new SplitIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, this->id);
   split_index->split_key = split_key;
   split_index->boundary_key = boundary_key;
   split_index->next = node_pointer;
   split_index->new_split_node_id = new_node_id;
-  uint32_t chain_len = node_.second;
-  return this->my_tree.table.Install(this->id, split_index, chain_len+1);
+  uint32_t chain_len = node_pointer->chain_len;
+  split_index->chain_len = chain_len + 1;
+  return this->my_tree.table.Install(this->id, split_index);
   
 }
 
@@ -932,7 +935,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
   ret_val = this->my_tree.Consolidate(this->id, true);
   if(!ret_val)
     return false;
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_pointer = this->my_tree.table.Get(this->id);
 
   uint64_t new_internal_node_id = this->my_tree.table.Get_next_id(); 
   InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *new_internal_node = new InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, new_internal_node_id);
@@ -961,25 +964,26 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
   // }
 
    SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* split_node = new SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, this->id);
-   split_node->next = node_.first;
+   split_node->next = node_pointer;
    split_node->target_node_id = new_internal_node_id;
    split_node->split_key = split_key; 
 
-  uint32_t chain_len = node_.second;
-  ret_val = this->my_tree.table.Install(new_internal_node_id, new_internal_node, 0);
+  uint32_t chain_len = node_pointer->chain_len;
+  new_internal_node->chain_len = 0;
+  ret_val = this->my_tree.table.Install(new_internal_node_id, new_internal_node);
   if(!ret_val)
     return false;
-  ret_val = this->my_tree.table.Install(this->id, split_node, chain_len+1);
+  split_node->chain_len = chain_len + 1;
+  ret_val = this->my_tree.table.Install(this->id, split_node);
   if(!ret_val)
     return false;
 
   if(index != 0)
   {
     uint64_t parent_id = path[index - 1];
-    pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> parent_node_ = this->my_tree.table.Get(parent_id);
-    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = parent_node_.first;
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *parent_node_pointer = this->my_tree.table.Get(parent_id);
 
-	Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *cur_pointer = node_pointer;
+	Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *cur_pointer = parent_node_pointer;
 	while(cur_pointer->next)
 		cur_pointer = cur_pointer->next;
 
@@ -1018,12 +1022,12 @@ uint64_t InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Internal_delete(KeyType merged_key){
 
-	pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
-	Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = node_.first;
+	Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_pointer = this->my_tree.table.Get(this->id);
 	RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *remove_index = new RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, this->id);
 	remove_index->deleted_key = merged_key;
 	remove_index->next = node_pointer;
-	uint32_t chain_len = node_.second;
+	uint32_t chain_len = node_pointer->chain_len;
+	remove_index->chain_len = chain_len + 1;
 	return this->my_tree.table.Install(this->id, remove_index, chain_len+1);
 }
 // Explicit template instantiations
@@ -1062,8 +1066,8 @@ IntsEqualityChecker<1>>;
 //template class BWTree<GenericKey<512>, ItemPointer, GenericComparator<512>,
 //GenericEqualityChecker<512>>;
 //
-//template class BWTree<TupleKey, ItemPointer, TupleKeyComparator,
-//TupleKeyEqualityChecker>;
+// template class BWTree<TupleKey, ItemPointer, TupleKeyComparator,
+// TupleKeyEqualityChecker>;
 
 
 // Add your function definitions here
