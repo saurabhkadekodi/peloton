@@ -65,6 +65,7 @@ public:
   Node(BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id, node_type_t type) :
   my_tree(bwt), id(id), type(type) {
     next = nullptr;
+	chain_len = 0;
   }
   ~Node() {
     next -> ~Node();
