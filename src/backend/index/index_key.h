@@ -331,6 +331,8 @@ class IntsComparator {
   IntsComparator(index::IndexMetadata *metadata)
       : key_schema(metadata->GetKeySchema()) {}
 
+  IntsComparator() {key_schema = NULL;};
+
   inline bool operator()(const IntsKey<KeySize> &lhs,
                          const IntsKey<KeySize> &rhs) const {
     // lexicographical compare could be faster for fixed N
@@ -435,6 +437,7 @@ class GenericComparator {
   GenericComparator(index::IndexMetadata *metadata)
       : schema(metadata->GetKeySchema()) {}
 
+  GenericComparator() {schema = NULL;};
   inline bool operator()(const GenericKey<KeySize> &lhs,
                          const GenericKey<KeySize> &rhs) const {
     /*
@@ -586,6 +589,7 @@ class TupleKeyComparator {
   TupleKeyComparator(index::IndexMetadata *metadata)
       : schema(metadata->GetKeySchema()) {}
 
+  TupleKeyComparator() {schema = NULL;};
   // return true if lhs < rhs
   inline bool operator()(const TupleKey &lhs, const TupleKey &rhs) const {
     storage::Tuple lhTuple = lhs.GetTupleForComparison(lhs.key_tuple_schema);

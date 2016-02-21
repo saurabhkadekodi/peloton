@@ -25,13 +25,10 @@
 
 namespace peloton {
 namespace index {
+using namespace std;
 
-/**
- * BW tree-based index implementation.
- *
- * @see Index
- */
-template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator,
+          typename KeyEqualityChecker>
 class BWTreeIndex : public Index {
   friend class IndexFactory;
 
@@ -42,30 +39,30 @@ class BWTreeIndex : public Index {
 
   ~BWTreeIndex();
 
-  bool InsertEntry(const storage::Tuple *key, const ItemPointer location);
+  bool InsertEntry(const storage::Tuple *key,
+                   const ItemPointer location);  // rajat
 
-  bool DeleteEntry(const storage::Tuple *key, const ItemPointer location);
+  bool DeleteEntry(const storage::Tuple *key,
+                   const ItemPointer location);  // saurabh
 
-  std::vector<ItemPointer> Scan(const std::vector<Value> &values,
-                                const std::vector<oid_t> &key_column_ids,
-                                const std::vector<ExpressionType> &expr_types,
-                                const ScanDirectionType& scan_direction);
+  vector<ItemPointer> Scan(const vector<Value> &values,
+                           const vector<oid_t> &key_column_ids,
+                           const vector<ExpressionType> &expr_types,
+                           const ScanDirectionType &scan_direction);  // saurabh
 
-  std::vector<ItemPointer> ScanAllKeys();
+  vector<ItemPointer> ScanAllKeys();  // saurabh
 
-  std::vector<ItemPointer> ScanKey(const storage::Tuple *key);
+  vector<ItemPointer> ScanKey(const storage::Tuple *key);  // saurabh
 
-  std::string GetTypeName() const;
+  string GetTypeName() const;
+
+  uint64_t tree_height;
 
   // TODO: Implement this
-  bool Cleanup() {
-    return true;
-  }
+  bool Cleanup() { return true; }
 
   // TODO: Implement this
-  size_t GetMemoryFootprint() {
-    return 0;
-  }
+  size_t GetMemoryFootprint() { return 0; }
 
  protected:
   // container
@@ -74,6 +71,7 @@ class BWTreeIndex : public Index {
   // equality checker and comparator
   KeyEqualityChecker equals;
   KeyComparator comparator;
+  ItemPointerEqualityChecker value_equals;
 
   // synch helper
   RWLock index_lock;
