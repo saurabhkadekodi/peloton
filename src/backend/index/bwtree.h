@@ -79,7 +79,7 @@ public:
   Node(BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id, node_type_t type) :
   my_tree(bwt), id(id), type(type) {
     next = nullptr;
-	chain_len = 0;
+	  chain_len = 0;
   }
   ~Node() {
     next -> ~Node();
@@ -118,7 +118,7 @@ class BWTree {
   CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table;
  // BWTree() {CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> b;
 //BWTree() {}
-BWTree(KeyComparator comparator, KeyEqualityChecker equals, ItemPointerEqualityChecker value_equals) : comparator(comparator), equals(equals), value_equals(value_equals) {}
+BWTree(KeyComparator comparator, KeyEqualityChecker equals, ItemPointerEqualityChecker value_equals);
  // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table) : table(table){}
   uint32_t min_node_size;
   uint32_t max_node_size;
@@ -165,7 +165,7 @@ class LeafBWNode : public Node<KeyType, ValueType, KeyComparator, KeyEqualityChe
   uint64_t low;
   uint64_t high;
   LeafBWNode(BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id) :
-  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, LEAF_BW_NODE) {}
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, LEAF_BW_NODE), sibling_id(0), low(0), high(0) {}
   bool Leaf_insert(KeyType key, ValueType value);
   bool Leaf_delete(KeyType key, ValueType value);
   bool Leaf_split(uint64_t *path, uint64_t index, KeyType key, ValueType value);

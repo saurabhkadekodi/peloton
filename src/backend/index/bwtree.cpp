@@ -20,13 +20,16 @@ namespace peloton {
 namespace index {
 using namespace std; //SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
 
-// template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
-// BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTree(KeyComparator, KeyEqualityChecker kc) {
-// if (true)
-// {
-//   return;
-// }
-// }
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
+BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTree(KeyComparator comparator, KeyEqualityChecker equals, ItemPointerEqualityChecker value_equals)
+: comparator(comparator), equals(equals), value_equals(value_equals) {
+    min_node_size = 2;
+    max_node_size = 4;
+    tree_height = 1;
+    root = table.Get_next_id();
+    LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* root_node = new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(*this, root);
+    table.Install(root, root_node);
+}
 
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
