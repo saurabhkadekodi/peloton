@@ -771,19 +771,19 @@ template <typename KeyType, typename ValueType, typename KeyComparator, typename
 bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(){
   pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
 
-  uint64_t new_id = this->my_tree.table -> Get_next_id();
+  uint64_t new_id = this->my_tree.table.Get_next_id();
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *new_leaf_node = new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, new_id);
-  multiset<KeyType, KeyComparator, KeyEqualityChecker> insert_set;
-  multiset<KeyType, KeyComparator, KeyEqualityChecker> delete_set;
+  multimap<KeyType, ValueType, KeyComparator> insert_set;
+  multimap<KeyType, ValueType, KeyComparator> delete_set;
   DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *temp = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *>(node_.first);
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *leaf_node = this;
   bool stop = false;
   while (!stop) {
     if (temp -> type == DELETE)
     {
-      delete_set.insert(temp -> key);
+      delete_set.insert(pair<KeyType, ValueType>(temp -> key, temp -> value));
     } else if (temp -> type == INSERT) {
-      insert_set.insert(temp -> key);
+      insert_set.insert(pair<KeyType, ValueType>(temp -> key, temp -> value));
     }
     if (temp -> next -> type == LEAF_BW_NODE) {
       stop = true;
@@ -793,12 +793,12 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolid
   }
   assert(leaf_node!= nullptr);
   while (!insert_set.empty()) {
-    typename multiset<KeyType, KeyComparator, KeyEqualityChecker>::iterator it = insert_set.begin();
-    KeyType key = *it;
-    typename multiset<KeyType, KeyComparator, KeyEqualityChecker>::iterator dit = delete_set.find(key);
+    typename multimap<KeyType, ValueType, KeyComparator>::iterator it = insert_set.begin();
+    KeyType key = it -> first;
+    typename multimap<KeyType, ValueType, KeyComparator>::iterator dit = delete_set.find(key);
     if (dit == delete_set.end())
     {
-      leaf_node.kv_list.insert(key);
+      leaf_node -> kv_list.insert(pair<KeyType, ValueType>(it -> first, it -> second));
     } else {
       delete_set.erase(dit);
     }
@@ -806,19 +806,19 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolid
   }
   // there can be multiple delete key deltas
   while(!delete_set.empty()) {
-    typename multiset<KeyType, KeyComparator, KeyEqualityChecker>::iterator dit = delete_set.begin();
-    KeyType key = *dit;
-    typename multiset<KeyType, KeyComparator, KeyEqualityChecker>::iterator it = leaf_node.kv_list.find(key);
+    typename multimap<KeyType, ValueType, KeyComparator>::iterator dit = delete_set.begin();
+    KeyType key = dit -> first;
+    typename multimap<KeyType, ValueType, KeyComparator>::iterator it = leaf_node->kv_list.find(key);
     if (it != this->kv_list.end())
     {
       this->kv_list.erase(it);
     } 
     delete_set.erase(dit);
   }
-  while(!leaf_node.kv_list.empty()) {
-    typename multiset<KeyType, KeyComparator, KeyEqualityChecker>::iterator it = leaf_node.kv_list.begin();
-    new_leaf_node->kv_list.insert(*it);
-    leaf_node.kv_list.erase(it);
+  while(!leaf_node->kv_list.empty()) {
+    typename multimap<KeyType, ValueType, KeyComparator>::iterator it = leaf_node->kv_list.begin();
+    new_leaf_node->kv_list.insert(pair<KeyType, ValueType>(it -> first, it -> second));
+    leaf_node->kv_list.erase(it);
   }
   bool result = this->my_tree.table.Install(new_id, new_leaf_node, 1);   // TODO: what is the correct chain length?
   return result;
