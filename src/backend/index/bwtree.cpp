@@ -30,26 +30,23 @@ using namespace std; //SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
 
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
-bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Install(uint64_t id, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr, uint32_t chain_length){
+bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Install(uint64_t id, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr){
 
-	if(chain_length == 0){
-		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> new_map(node_ptr, chain_length);
-		cas_mapping_table.insert(pair<uint64_t, pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> >(id, new_map));
+	if(node_ptr->chain_length == 0){
+		cas_mapping_table.insert(pair<uint64_t, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(id, new_map));
 		return true;
 	}
 
-	uint32_t chain_len = chain_length;
 	while(true){	
-		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> new_map(node_ptr, chain_len);
-		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> old_map(node_ptr->next, chain_len - 1);
-		typename map<uint64_t, pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t>>::iterator iter = cas_mapping_table.find(id);
-		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> *address = reinterpret_cast<pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> *>(&(iter->second));
-		if(__sync_bool_compare_and_swap(address, old_map, new_map)){
+		Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* old_node = node_ptr->next;
+		typename map<uint64_t, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>::iterator iter = cas_mapping_table.find(id);
+		Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* address = iter -> second;
+		if(__sync_bool_compare_and_swap(&address, old_node, node_ptr)){
 			break;
 		}
-		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> cur_map = cas_mapping_table[id];
-		node_ptr->next = cur_map.first;
-		chain_len = cur_map.second + 1;
+		Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_node = cas_mapping_table[id];
+		node_ptr->next = cur_node;
+		node_ptr -> chain_len = cur_node -> chain_len + 1;
 	}
 	return true;
 }
@@ -57,7 +54,7 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Ins
 
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
-pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get (uint64_t id){
+Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get (uint64_t id){
 	return cas_mapping_table[id];
 }
 
@@ -383,10 +380,11 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_ins
   new DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, this->id, INSERT);
   delta->key = key;
   delta->value = value;
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = (this->my_tree).table.Get(this->id);
-  delta->next = node_.first;
-  uint32_t chain_len = node_.second;
-  bool result = this->my_tree.table.Install(this->id, delta, chain_len+1);
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ = (this->my_tree).table.Get(this->id);
+  delta->next = node_;
+  uint32_t chain_len = node_ -> chain_len;
+  delta -> chain_len = chain_len + 1;
+  bool result = this->my_tree.table.Install(this->id, delta);
   return result;
 }
 
@@ -397,10 +395,11 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_del
   delta->key = key;
   delta->value = value;
   delta-> type = DELETE;
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
-  delta->next = node_.first;
-  uint32_t chain_len = node_.second;
-  return this->my_tree.table.Install(this->id, delta, chain_len+1);
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ = this->my_tree.table.Get(this->id);
+  delta->next = node_;
+  uint32_t chain_len = node_ -> chain_len;
+  delta -> chain_len = chain_len + 1;
+  return this->my_tree.table.Install(this->id, delta);
 }
 
 
@@ -438,27 +437,26 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_spl
     new_leaf_node->kv_list.insert(make_pair(key, value));
   }
 
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = (this->my_tree).table.Get(0);
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ = (this->my_tree).table.Get(this -> id);
   SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* split_node = new SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, this->id);
-  split_node->next = node_.first;
+  split_node->next = node_;
   split_node->target_node_id = new_node_id;
   split_node->split_key = key;
 
-  uint32_t chain_len = node_.second;
+  uint32_t chain_len = node_ -> chain_len;
   bool ret_val = true;
-  ret_val = this->my_tree.table.Install(new_node_id, new_leaf_node, 0);
+  ret_val = this->my_tree.table.Install(new_node_id, new_leaf_node);
   if(!ret_val)
     return false;
-  ret_val = this->my_tree.table.Install(this->id, split_node, chain_len+1);
+  split_node -> chain_len = chain_len + 1;
+  ret_val = this->my_tree.table.Install(this->id, split_node);
   if(!ret_val)
     return false;
 
   if(index > 0){
 	  uint64_t parent_id = path[index-1];
-	  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> parent_node_ = this->my_tree.table.Get(parent_id);
-	  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = parent_node_.first;
-	  
-	  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *cur_pointer = node_pointer;
+	  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* parent_node_ = this->my_tree.table.Get(parent_id);
+	  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *cur_pointer = parent_node_;
 	  while(cur_pointer->next)
 		cur_pointer = cur_pointer->next;
 
@@ -633,8 +631,8 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_mer
     neighbour_node_id = this->sibling_id;
 	this->my_tree.Consolidate(neighbour_node_id, true);
 
-	pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> n_node_ = this->my_tree.table.Get(neighbour_node_id);
-	LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n_node_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(n_node_.first);
+	Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n_node_ = this->my_tree.table.Get(neighbour_node_id);
+	LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n_node_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(n_node_);
 
 
 
@@ -655,27 +653,26 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_mer
     }
 	else{
 		RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* remove_node = new RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, neighbour_node_id);
-		remove_node->next = n_node_pointer;
-
-		uint32_t chain_len = n_node_.second;
-		ret_val = this->my_tree.table.Install(neighbour_node_id, remove_node, chain_len+1);
+		remove_node->next = n_node_;
+		uint32_t chain_len = n_node_ -> chain_len;
+    remove_node->chain_len=chain_len+1;
+		ret_val = this->my_tree.table.Install(neighbour_node_id, remove_node);
 		if(!ret_val)
 			return false;
 
-		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
+		Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ = this->my_tree.table.Get(this->id);
 		MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* merge_node = new MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, this->id);
 		merge_node->node_to_be_merged = n_node_pointer;
-		merge_node->next = node_.first;
-		uint32_t my_chain_len = node_.second;
+		merge_node->next = node_;
+		uint32_t my_chain_len = node_->chain_len;
+    merge_node ->chain_len=my_chain_len+1;
 		merge_node->merge_key = n_node_pointer->kv_list.begin()->first;
-		ret_val = this->my_tree.table.Install(this->id, merge_node, my_chain_len+1);
+		ret_val = this->my_tree.table.Install(this->id, merge_node);
 		if(!ret_val)
 			return false;
 
 		uint64_t parent_id = path[index-1];
-		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> parent_node_ = this->my_tree.table.Get(parent_id);
-		Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* parent_node_pointer = parent_node_.first;
-
+		Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* parent_node_pointer = this->my_tree.table.Get(parent_id);
 		Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *cur_pointer = parent_node_pointer;
 		while(cur_pointer->next)
 			cur_pointer = cur_pointer->next;
@@ -697,8 +694,8 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_mer
     neighbour_node_id = left_sibling;
 	this->my_tree.Consolidate(neighbour_node_id, true);
 
-	pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> n_node_ = this->my_tree.table.Get(neighbour_node_id);
-	LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n_node_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(n_node_.first);
+	Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n_node_ = this->my_tree.table.Get(neighbour_node_id);
+	LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n_node_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(n_node_);
 
 	uint64_t total_count = this->my_tree.Get_size(this->id) + this->my_tree.Get_size(neighbour_node_id);
     if(total_count > this->my_tree.max_node_size){
@@ -716,12 +713,13 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_mer
 
     }
 	else{
-		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
+		Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ = this->my_tree.table.Get(this->id);
 		RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* remove_node = new RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, this->id);
-		remove_node->next = node_.first;
+		remove_node->next = node_;
 
-		uint32_t chain_len = node_.second;
-		ret_val = this->my_tree.table.Install(this->id, remove_node, chain_len+1);
+		uint32_t chain_len = node_->chain_len;
+    remove_node->chain_len = chain_len+1;
+		ret_val = this->my_tree.table.Install(this->id, remove_node);
 		if(!ret_val)
 			return false;
 
@@ -729,15 +727,15 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_mer
 		MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* merge_node = new MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, neighbour_node_id);
 		merge_node->node_to_be_merged = node_pointer;
 		merge_node->next = n_node_pointer;
-		uint32_t neighbour_chain_len = n_node_.second;
+		uint32_t neighbour_chain_len = n_node_->chain_len;
+    merge_node->chain_len=neighbour_chain_len+1;
 		merge_node->merge_key = node_pointer->kv_list.begin()->first;
-		ret_val = this->my_tree.table.Install(neighbour_node_id, merge_node, neighbour_chain_len+1);
+		ret_val = this->my_tree.table.Install(neighbour_node_id, merge_node);
 		if(!ret_val)
 			return false;
 
 		uint64_t parent_id = path[index-1];
-		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> parent_node_ = this->my_tree.table.Get(parent_id);
-		Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* parent_node_pointer = parent_node_.first;
+		Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* parent_node_pointer = this->my_tree.table.Get(parent_id);
 
 		Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *cur_pointer = parent_node_pointer;
 		while(cur_pointer->next)
@@ -790,13 +788,13 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_mer
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(){
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ = this->my_tree.table.Get(this->id);
 
   uint64_t new_id = this->my_tree.table.Get_next_id();
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *new_leaf_node = new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, new_id);
   multimap<KeyType, ValueType, KeyComparator> insert_set;
   multimap<KeyType, ValueType, KeyComparator> delete_set;
-  DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *temp = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *>(node_.first);
+  DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *temp = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *>(node_);
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *leaf_node = this;
   bool stop = false;
   while (!stop) {
@@ -841,7 +839,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolid
     new_leaf_node->kv_list.insert(pair<KeyType, ValueType>(it -> first, it -> second));
     leaf_node->kv_list.erase(it);
   }
-  bool result = this->my_tree.table.Install(new_id, new_leaf_node, 1);   // TODO: what is the correct chain length?
+  bool result = this->my_tree.table.Install(new_id, new_leaf_node);   // TODO: what is the correct chain length?
   return result;
 }
 

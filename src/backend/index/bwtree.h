@@ -59,6 +59,7 @@ public:
   epoch_t generation;
   BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& my_tree; // reference of the tree I belong to
   uint64_t id;
+  uint32_t chain_len;
   node_type_t type;
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *next;
   Node(BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id, node_type_t type) :
@@ -76,12 +77,12 @@ class CASMappingTable {
   typedef Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> NodeType;
 
   private:
-  map<uint64_t, pair<NodeType*, uint32_t>> cas_mapping_table; // should be capable of mapping to internal and leaf bw nodes and delta nodes of any type
+  map<uint64_t, NodeType*> cas_mapping_table; // should be capable of mapping to internal and leaf bw nodes and delta nodes of any type
   uint64_t cur_max_id;
   public:
   CASMappingTable() : cur_max_id(1) {};
-  bool Install(uint64_t id, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr, uint32_t chain_length); // install into mapping table via compare and swap
-  pair<NodeType*, uint32_t> Get (uint64_t id);
+  bool Install(uint64_t id, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr); // install into mapping table via compare and swap
+  NodeType* Get (uint64_t id);
   uint64_t Get_next_id();
 };
 
