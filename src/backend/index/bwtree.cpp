@@ -15,6 +15,59 @@
 namespace peloton {
 namespace index {
 using namespace std; //SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
+
+template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Epoch(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id, uint64_t oldest) {
+  generation = id;
+  oldest_epoch = oldest;
+  ref_count.store(0);
+  my_tree = bwt;
+}
+
+template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+void Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::join() {
+  /*
+   * We call join from every operation that needs to be performed on the tree.
+   */
+  ref_count.fetch_add(1);
+}
+
+template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+void Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::performGc() {
+  /*
+   * We have to iterate through the to_be_cleaned list one-by-one and delete
+   * the nodes. The destructors of those nodes will take care of cleaning up
+   * the necessary internal malloc'd objects.
+   */
+  to_be_cleaned.clear();
+}
+
+template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+bool Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::leave() {
+  ref_count.fetch_sub(1);
+  if(to_be_cleaned.size() >= my_tree->max_epoch_size) {
+    auto new_e = Epoch(this->generation + 1, my_tree->oldest_epoch);
+    __sync_bool_compare_and_swap(&(my_tree->current_epoch), this, new_e);
+  }
+  if(__sync_bool_compare_and_swap(&(my_tree->current_epoch), this, this) == false) {
+    /*
+     * this means epoch changed before this thread reached leave.
+     */
+    if(ref_count == 0) {
+      if(__sync_bool_compare_and_swap(&(my_tree->oldest_epoch), oldest_epoch, this->generation + 1)) {
+        /*
+         * perform cleaning of this epoch, because we don't need it anymore.
+         *
+         * Here it is guaranteed that only one thread will come here, since it
+         * is guarded by compare-and-swap on oldest epoch.
+         */
+        performGc();
+        return true; // this is for the upper layer to delete the epoch object
+      }
+    }
+  }
+}
+
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 bool
 CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Install(uint64_t id, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr, uint32_t chain_length) {
@@ -124,56 +177,57 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_no
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 bool DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(){
 
-  uint64_t new_id = this.my_tree.table -> Get_next_id();
-  LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *new_leaf_node = new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this.my_tree, new_id);
-  multiset<KeyType, KeyComparator> insert_set;
-  multiset<KeyType, KeyComparator> delete_set;
-  DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *temp = this;
-  LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *leaf_node = nullptr;
-  bool stop = false;
-  while (!stop) {
-    if (temp -> type == DELETE)
-    {
-      delete_set.insert(temp -> key);
-    } else if (temp -> type == INSERT) {
-      insert_set.insert(temp -> key);
-    }
-    if (temp -> next -> type == LEAF_BW_NODE) {
-      leaf_node = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp -> next);
-      stop = true;
-    } else {
-      temp = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *>(temp -> next);
-    }
-  }
-  assert(leaf_node!= nullptr);
-  while (!insert_set.empty()) {
-    multiset<KeyType, KeyComparator>::iterator it = insert_set.begin();
-    KeyType key = *it;
-    multiset<KeyType, KeyComparator>::iterator dit = delete_set.find(key);
-    if (dit == delete_set.end())
-    {
-      leaf_node.kv_list.insert(key);
-    } else {
-      delete_set.erase(dit);
-    }
-    insert_set.erase(it);
-  }
-  while(!delete_set.empty()) {
-    multiset<KeyType, KeyComparator>::iterator dit = delete_set.begin();
-    KeyType key = *it;
-    multiset<KeyType, KeyComparator>::iterator it = leaf_node.kv_list.find(key);
-    if (it != kv_list.end())
-    {
-      kv_list.erase(it);
-    } 
-    delete_set.erase(dit);
-  }
-  while(!leaf_node.kv_list.empty()) {
-    multiset<KeyType, KeyComparator>::iterator it = leaf_node.kv_list.begin();
-    new_leaf_node.kv_list.insert(*it);
-    leaf_node.kv_list.erase(it);
-  }
-  return this.my_tree.table->Install(new_id, new_leaf_node, 1);   // TODO: what is the correct chain length?
+  // uint64_t new_id = this.my_tree.table -> Get_next_id();
+  // LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *new_leaf_node = new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this.my_tree, new_id);
+  // multiset<KeyType, KeyComparator> insert_set;
+  // multiset<KeyType, KeyComparator> delete_set;
+  // DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *temp = this;
+  // LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *leaf_node = nullptr;
+  // bool stop = false;
+  // while (!stop) {
+  //   if (temp -> type == DELETE)
+  //   {
+  //     delete_set.insert(temp -> key);
+  //   } else if (temp -> type == INSERT) {
+  //     insert_set.insert(temp -> key);
+  //   }
+  //   if (temp -> next -> type == LEAF_BW_NODE) {
+  //     leaf_node = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp -> next);
+  //     stop = true;
+  //   } else {
+  //     temp = dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *>(temp -> next);
+  //   }
+  // }
+  // assert(leaf_node!= nullptr);
+  // while (!insert_set.empty()) {
+  //   multiset<KeyType, KeyComparator>::iterator it = insert_set.begin();
+  //   KeyType key = *it;
+  //   multiset<KeyType, KeyComparator>::iterator dit = delete_set.find(key);
+  //   if (dit == delete_set.end())
+  //   {
+  //     leaf_node.kv_list.insert(key);
+  //   } else {
+  //     delete_set.erase(dit);
+  //   }
+  //   insert_set.erase(it);
+  // }
+  // while(!delete_set.empty()) {
+  //   multiset<KeyType, KeyComparator>::iterator dit = delete_set.begin();
+  //   KeyType key = *it;
+  //   multiset<KeyType, KeyComparator>::iterator it = leaf_node.kv_list.find(key);
+  //   if (it != kv_list.end())
+  //   {
+  //     kv_list.erase(it);
+  //   } 
+  //   delete_set.erase(dit);
+  // }
+  // while(!leaf_node.kv_list.empty()) {
+  //   multiset<KeyType, KeyComparator>::iterator it = leaf_node.kv_list.begin();
+  //   new_leaf_node.kv_list.insert(*it);
+  //   leaf_node.kv_list.erase(it);
+  // }
+  // return this.my_tree.table->Install(new_id, new_leaf_node, 1);   // TODO: what is the correct chain length?
+  return false;
 
 
 }
@@ -309,6 +363,18 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Spli
   return ret_val;
  
 }
+template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+uint64_t InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_child_id(KeyType key) {
+  return 0;  
+} 
+
+template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(uint64_t id, KeyType merged_key){
+  return false;
+  
+}
+
+
 // Add your function definitions here
 
 }  // End index namespace

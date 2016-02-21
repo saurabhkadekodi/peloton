@@ -17,6 +17,8 @@
 #include <map>
 #include <utility>
 #include <set>
+#include <list>
+#include <atomic>
 
 namespace peloton {
 namespace index {
@@ -41,6 +43,9 @@ template <typename KeyType, typename ValueType, class KeyComparator, class KeyEq
 class BWTree;
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+class Epoch;
+
+template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 class Node {
 
 protected:
@@ -55,7 +60,7 @@ protected:
   ~Node() {
     next -> ~Node();
   }
-  virtual Consolidate(){}
+  virtual bool Consolidate();
 public:
   node_type_t type;
 };
@@ -91,6 +96,7 @@ BWTree() {}
  // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table) : table(table){}
   uint32_t min_node_size;
   uint32_t max_node_size;
+  uint64_t tree_height;
   uint64_t root; // root points to an id in the mapping table
   bool Consolidate(uint64_t id, bool force) {return false;} // id is that of the mapping table entry
   bool MergeNodes(uint64_t n1, uint64_t n2){return false;} // saurabh
@@ -100,6 +106,9 @@ BWTree() {}
   bool Insert(KeyType key, ValueType value);
   bool Delete(KeyType key, ValueType value);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* Search(KeyType key);
+  Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *current_epoch;
+  uint64_t oldest_epoch;
+  uint64_t max_epoch_size;
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
@@ -140,7 +149,7 @@ class DeltaNode : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
   KeyType key;
   ValueType value;
   public:
-  Consolidate();
+  bool Consolidate();
   DeltaNode(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id, node_type_t type) :
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, type) {} // Default is INSERT type
 };
@@ -169,7 +178,7 @@ class SplitDeltaNode : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecke
   SplitDeltaNode(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id) :
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, SPLIT) {}
   KeyType split_key;
-  uint64_t target_node_id; 
+  uint64_t target_node_id;
 };
 
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
@@ -189,5 +198,20 @@ class MergeDeltaNode : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecke
   KeyType MergeKey;
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_to_be_merged;
 };
+
+template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+class Epoch {
+  public:
+    Epoch(const BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id, uint64_t oldest);
+    uint64_t generation;
+    uint64_t oldest_epoch;
+    std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *> to_be_cleaned; //FIXME: worry about concurrency in this data structure
+    BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *my_tree;
+    std::atomic<uint64_t> ref_count; // number of threads in epoch
+    void join();
+    bool leave();
+    void performGc();
+};
+
 }  // End index namespace
 }  // End peloton namespace
