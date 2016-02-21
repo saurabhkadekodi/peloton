@@ -11,6 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "backend/index/bwtree.h"
+#include "backend/common/types.h"
+#include "backend/index/index_key.h"
+#include "backend/storage/tuple.h"
+
 #include "assert.h"
 namespace peloton {
 namespace index {
@@ -30,7 +34,7 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Ins
 
 	if(chain_length == 0){
 		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> new_map(node_ptr, chain_length);
-		cas_mapping_table,insert(pair<uint64_t, pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> >(id, new_map));
+		cas_mapping_table.insert(pair<uint64_t, pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> >(id, new_map));
 		return true;
 	}
 
@@ -38,7 +42,7 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Ins
 	while(true){	
 		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> new_map(node_ptr, chain_len);
 		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> old_map(node_ptr->next, chain_len - 1);
-		if(__sync_bool_compare_and_swap(&cas_mapping_table[id], old_map, new_map)){
+		if(__sync_bool_compare_and_swap(&(cas_mapping_table[id]), old_map, new_map)){
 			break;
 		}
 		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> cur_map = cas_mapping_table[id];
@@ -51,14 +55,14 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Ins
 
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
-pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> CASMappingTable::Get (uint64_t id){
+pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get (uint64_t id){
 	return cas_mapping_table[id];
 }
 
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
-uint64_t CASMappingTable::Get_next_id (uint64_t id){
-	uint64_t old_val = this->cur_max_id;
+uint64_t CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_next_id (){
+	uint64_t old_val = cur_max_id;
 	uint64_t new_val = old_val + 1;
 	while(true){
 		if(__sync_bool_compare_and_swap(&cur_max_id, old_val, new_val))
@@ -84,10 +88,10 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
-bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_root(uint64_t split_key, uint64_t left_pointer, uint64_t right_pointer) {
+bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_root(KeyType split_key, uint64_t left_pointer, uint64_t right_pointer) {
 	uint64_t new_root_id = this->table.Get_next_id();
 	uint64_t old_root_id = root;
-	InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* internal_pointer = new InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this, new_root_id);
+	InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* internal_pointer = new InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(*this, new_root_id);
 	internal_pointer->leftmost_pointer = left_pointer;
 	internal_pointer->key_list.insert(pair<KeyType, uint64_t>(split_key, right_pointer));
 	internal_pointer->sibling_id = 0;
@@ -126,8 +130,8 @@ vector<ValueType> BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>:
       break;
       case(SPLIT):
       {
-        SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *split_pointer = nullptr;
-        split_pointer = dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
+        //SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *split_pointer = nullptr;
+        //split_pointer = dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
         //It should never be the case that we need to go to the right side of a split pointer
         //That would have been done be the search function which would give us the correct id
         //Hence we just need to continue to the next node in this delta chain
@@ -135,8 +139,8 @@ vector<ValueType> BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>:
       break;
       case(MERGE):
       {
-        SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *merge_pointer = nullptr;
-        merge_pointer = dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
+        MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *merge_pointer = nullptr;
+        merge_pointer = dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
         if(!comparator(key, merge_pointer->merge_key)){
           node_pointer = merge_pointer->node_to_be_merged;
           continue;
@@ -146,10 +150,10 @@ vector<ValueType> BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>:
       case(LEAF_BW_NODE):
       {
         LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *leaf_pointer = nullptr;
-        leaf_pointer = dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
+        leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
                 
         pair<typename multimap<KeyType, ValueType>::iterator, typename multimap<KeyType, ValueType>::iterator> values= leaf_pointer->kv_list.equal_range(key);
-        typename multimap<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::iterator iter;
+        typename multimap<KeyType, ValueType, KeyComparator>::iterator iter;
         for(iter=values.first;iter!=values.second;iter++){
           if(find(deleted_keys.begin(), deleted_keys.end(), pair<KeyType, ValueType>(iter->first, iter->second)) == deleted_keys.end()){
           ret_vector.push_back(iter->second);
@@ -219,7 +223,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(KeyTy
 
   uint64_t cur_node_size = Get_size(node_id);
   if(cur_node_size > min_node_size){
-    return leaf_pointer->Leaf_delete(key, location);
+    return leaf_pointer->Leaf_delete(key, value);
   }
   else{
     return leaf_pointer->Leaf_merge(path, location, key, value);
@@ -351,27 +355,7 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(KeyType ke
   return 0;
 }
 
-template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
-bool
-CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Install(uint64_t id, Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr, uint32_t chain_length) const {
-  id++;
-  node_ptr=nullptr;
-  chain_length++;
-  return false;
-}
-template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
-pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get(uint64_t id) const {
-  if (id ==0)
-  {
-    /* code */
-  }
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> dummy;
-  return dummy;
-}
-template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
-uint64_t CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_next_id() const {
-  return 0;
-}
+
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_insert(KeyType key, ValueType value){
@@ -379,7 +363,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_ins
   new DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(this->my_tree, this->id, INSERT);
   delta->key = key;
   delta->value = value;
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
+  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = (this->my_tree).table.Get(this->id);
   delta->next = node_.first;
   uint32_t chain_len = node_.second;
   bool result = this->my_tree.table.Install(this->id, delta, chain_len+1);
@@ -393,10 +377,10 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_del
   delta->key = key;
   delta->value = value;
   delta-> type = DELETE;
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table->Get(this->id);
+  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = this->my_tree.table.Get(this->id);
   delta->next = node_.first;
   uint32_t chain_len = node_.second;
-  return this->my_tree.table->Install(this->id, delta, chain_len+1);
+  return this->my_tree.table.Install(this->id, delta, chain_len+1);
 }
 
 
@@ -418,7 +402,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_spl
   KeyType split_key;
   KeyType boundary_key;
 
-  typename multimap<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::iterator split_iterator = kv_list.begin();
+  typename multimap<KeyType, ValueType, KeyComparator>::iterator split_iterator = kv_list.begin();
   advance(split_iterator, count/2);
 
   for(;split_iterator != kv_list.end();split_iterator++)
@@ -468,7 +452,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_spl
 	  return ret_val;
   }
   else{
-	ret_val = this->my_tree.Split_root(split_key, this.id, new_node_id);
+	ret_val = this->my_tree.Split_root(split_key, this->id, new_node_id);
 	if(!ret_val){
 		//TODO: Figure out what to do if splot_root fails
 	}
@@ -484,7 +468,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
 	{
 		return ret_val;
 	}
-	typename multimap<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::iterator iter = key_list.find(merge_key);
+	typename multimap<KeyType, ValueType, KeyComparator>::iterator iter = key_list.find(merge_key);
 	key_list.erase(iter);
 	//We are the root node
 	if(index == 0)
@@ -500,7 +484,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
 			//Redistribute
 			uint64_t half_count = total_count/2;
 			while(this->my_tree.Get_size(this->id) < half_count){
-				typename multimap<KeyType, uint64_t, KeyComparator, KeyEqualityChecker>::iterator first_iterator = n_node_pointer->key_list.begin();
+				typename multimap<KeyType, uint64_t, KeyComparator>::iterator first_iterator = n_node_pointer->key_list.begin();
 				KeyType key = first_iterator->first;
 				uint64_t value = first_iterator->second;
 				Internal_insert(key, value);
@@ -553,7 +537,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
 			//Redistribute
 			uint64_t half_count = total_count/2;
 			while(this->my_tree.Get_size(this->id) < half_count){
-				typename multimap<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::reverse_iterator first_iterator = n_node_pointer->key_list.rbegin();
+				typename multimap<KeyType, ValueType, KeyComparator>::reverse_iterator first_iterator = n_node_pointer->key_list.rbegin();
 				KeyType key = first_iterator->first;
 				uint64_t value = first_iterator->second;
 				Internal_insert(key, value);
@@ -600,6 +584,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
 			return ret_val;
 		}
 	}
+	return false;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
@@ -611,12 +596,12 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_mer
   }
 
   pair<typename multimap<KeyType, ValueType>::iterator, typename multimap<KeyType, ValueType>::iterator> values= kv_list.equal_range(key);
-  typename multimap<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::iterator iter;
-  for(iter=values.first;iter!=values.second;iter++){
-    if(iter->second == value){
-      break;
-    }
-  }
+  typename multimap<KeyType, ValueType, KeyComparator>::iterator iter = values.first;
+  //for(iter=values.first;iter!=values.second;iter++){
+  //  if(iter->second == value){
+  //    break;
+  //  }
+  //}
   kv_list.erase(iter);
 
   //We are the root node
@@ -626,17 +611,19 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_mer
   uint64_t neighbour_node_id;
   if(this->sibling_id != 0){
     neighbour_node_id = this->sibling_id;
-	this->my_tree.Consolidated(neighbour_node_id, true);
+	this->my_tree.Consolidate(neighbour_node_id, true);
 
 	pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> n_node_ = this->my_tree.table.Get(neighbour_node_id);
-	Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n_node_pointer = n_node_.first;
+	LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n_node_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(n_node_.first);
+
+
 
 	uint64_t total_count = this->my_tree.Get_size(this->id) + this->my_tree.Get_size(neighbour_node_id);
     if(total_count > this->my_tree.max_node_size){
       //Redistribute
       uint64_t half_count = total_count/2;
       while(this->my_tree.Get_size(this->id) < half_count){
-        typename multimap<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::iterator first_iterator = n_node_pointer->kv_list.begin();
+        typename multimap<KeyType, ValueType, KeyComparator>::iterator first_iterator = n_node_pointer->kv_list.begin();
         KeyType key = first_iterator->first;
         ValueType value = first_iterator->second;
         Leaf_insert(key, value);
@@ -698,7 +685,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_mer
       //Redistribute
       uint64_t half_count = total_count/2;
       while(this->my_tree.Get_size(this->id) < half_count){
-        typename multimap<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::reverse_iterator first_iterator = n_node_pointer->kv_list.rbegin();
+        typename multimap<KeyType, ValueType, KeyComparator>::reverse_iterator first_iterator = n_node_pointer->kv_list.rbegin();
         KeyType key = first_iterator->first;
         ValueType value = first_iterator->second;
         Leaf_insert(key, value);
@@ -838,8 +825,8 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolid
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
-uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_size(uint64_t id) const {
-  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = table.Get(id);
+uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_size(uint64_t node_id) {
+  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> node_ = table.Get(node_id);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer = node_.first;
   uint64_t count = 0;
   bool end = false;
@@ -938,7 +925,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
   uint64_t count = key_list.size();
   // KeyType split_key = key_list[count/2].first;
   // KeyType boundary_key = key_list[count-1].first;
-  typename multimap<KeyType, uint64_t, KeyComparator, KeyEqualityChecker>::iterator split_iterator = key_list.begin();
+  typename multimap<KeyType, uint64_t, KeyComparator>::iterator split_iterator = key_list.begin();
   advance(split_iterator, count/2);
 
   for(;split_iterator != key_list.end();split_iterator++)
@@ -997,18 +984,16 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 uint64_t InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get_child_id(KeyType key) {
 	//TODO: We need to find the correct child id
-	typename multimap<KeyType, uint64_t, KeyComparator, KeyEqualityChecker>::iterator iter = key_list.rbegin();
+	typename multimap<KeyType, uint64_t, KeyComparator>::iterator iter = key_list.rbegin();
 	for(;iter!=key_list.rend();iter++) {
 		if (comparator(key, iter -> first))
 		{
 			return  iter -> second;
 		}
 	}
-	if(iter == key_list.rend()){
+	if(iter == key_list.rend())
 		return leftmost_pointer;
-		return 0;
-
-	} 
+	return 0;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
@@ -1026,40 +1011,40 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Inte
 
 template class BWTree<IntsKey<1>, ItemPointer, IntsComparator<1>,
 IntsEqualityChecker<1>>;
-template class BWTree<IntsKey<2>, ItemPointer, IntsComparator<2>,
-IntsEqualityChecker<2>>;
-template class BWTree<IntsKey<3>, ItemPointer, IntsComparator<3>,
-IntsEqualityChecker<3>>;
-template class BWTree<IntsKey<4>, ItemPointer, IntsComparator<4>,
-IntsEqualityChecker<4>>;
-
-template class BWTree<GenericKey<4>, ItemPointer, GenericComparator<4>,
-GenericEqualityChecker<4>>;
-template class BWTree<GenericKey<8>, ItemPointer, GenericComparator<8>,
-GenericEqualityChecker<8>>;
-template class BWTree<GenericKey<12>, ItemPointer, GenericComparator<12>,
-GenericEqualityChecker<12>>;
-template class BWTree<GenericKey<16>, ItemPointer, GenericComparator<16>,
-GenericEqualityChecker<16>>;
-template class BWTree<GenericKey<24>, ItemPointer, GenericComparator<24>,
-GenericEqualityChecker<24>>;
-template class BWTree<GenericKey<32>, ItemPointer, GenericComparator<32>,
-GenericEqualityChecker<32>>;
-template class BWTree<GenericKey<48>, ItemPointer, GenericComparator<48>,
-GenericEqualityChecker<48>>;
-template class BWTree<GenericKey<64>, ItemPointer, GenericComparator<64>,
-GenericEqualityChecker<64>>;
-template class BWTree<GenericKey<96>, ItemPointer, GenericComparator<96>,
-GenericEqualityChecker<96>>;
-template class BWTree<GenericKey<128>, ItemPointer, GenericComparator<128>,
-GenericEqualityChecker<128>>;
-template class BWTree<GenericKey<256>, ItemPointer, GenericComparator<256>,
-GenericEqualityChecker<256>>;
-template class BWTree<GenericKey<512>, ItemPointer, GenericComparator<512>,
-GenericEqualityChecker<512>>;
-
-template class BWTree<TupleKey, ItemPointer, TupleKeyComparator,
-TupleKeyEqualityChecker>;
+//template class BWTree<IntsKey<2>, ItemPointer, IntsComparator<2>,
+//IntsEqualityChecker<2>>;
+//template class BWTree<IntsKey<3>, ItemPointer, IntsComparator<3>,
+//IntsEqualityChecker<3>>;
+//template class BWTree<IntsKey<4>, ItemPointer, IntsComparator<4>,
+//IntsEqualityChecker<4>>;
+//
+//template class BWTree<GenericKey<4>, ItemPointer, GenericComparator<4>,
+//GenericEqualityChecker<4>>;
+//template class BWTree<GenericKey<8>, ItemPointer, GenericComparator<8>,
+//GenericEqualityChecker<8>>;
+//template class BWTree<GenericKey<12>, ItemPointer, GenericComparator<12>,
+//GenericEqualityChecker<12>>;
+//template class BWTree<GenericKey<16>, ItemPointer, GenericComparator<16>,
+//GenericEqualityChecker<16>>;
+//template class BWTree<GenericKey<24>, ItemPointer, GenericComparator<24>,
+//GenericEqualityChecker<24>>;
+//template class BWTree<GenericKey<32>, ItemPointer, GenericComparator<32>,
+//GenericEqualityChecker<32>>;
+//template class BWTree<GenericKey<48>, ItemPointer, GenericComparator<48>,
+//GenericEqualityChecker<48>>;
+//template class BWTree<GenericKey<64>, ItemPointer, GenericComparator<64>,
+//GenericEqualityChecker<64>>;
+//template class BWTree<GenericKey<96>, ItemPointer, GenericComparator<96>,
+//GenericEqualityChecker<96>>;
+//template class BWTree<GenericKey<128>, ItemPointer, GenericComparator<128>,
+//GenericEqualityChecker<128>>;
+//template class BWTree<GenericKey<256>, ItemPointer, GenericComparator<256>,
+//GenericEqualityChecker<256>>;
+//template class BWTree<GenericKey<512>, ItemPointer, GenericComparator<512>,
+//GenericEqualityChecker<512>>;
+//
+//template class BWTree<TupleKey, ItemPointer, TupleKeyComparator,
+//TupleKeyEqualityChecker>;
 
 
 // Add your function definitions here
