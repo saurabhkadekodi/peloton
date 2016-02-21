@@ -43,7 +43,7 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Ins
 		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> new_map(node_ptr, chain_len);
 		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> old_map(node_ptr->next, chain_len - 1);
 		typename map<uint64_t, pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t>>::iterator iter = cas_mapping_table.find(id);
-		pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> *address = reinterpret_cast<pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> *>(&(iter->second));
+	auto address = reinterpret_cast<pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*, uint32_t> *>(&(iter->second));
 		if(__sync_bool_compare_and_swap(address, old_map, new_map)){
 			break;
 		}
@@ -169,7 +169,7 @@ vector<ValueType> BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>:
         typename multimap<KeyType, ValueType, KeyComparator>::iterator iter;
         for(iter=values.first;iter!=values.second;iter++){
 			bool push = true;
-			pair<typename multimap<KeyType, ValueType>::iterator, typename multimap<KeyType, ValueType>::iterator> deleted_values= deleted_keys.equal_range(simple_pointer->key);
+			pair<typename multimap<KeyType, ValueType>::iterator, typename multimap<KeyType, ValueType>::iterator> deleted_values= deleted_keys.equal_range(key);
 			typename multimap<KeyType, ValueType, KeyComparator>::iterator deleted_iter;
 			for(deleted_iter=deleted_values.first;deleted_iter!=deleted_values.second;deleted_iter++){
 				//if(deleted_iter->second = iter->second){
@@ -1064,8 +1064,8 @@ IntsEqualityChecker<1>>;
 //template class BWTree<GenericKey<512>, ItemPointer, GenericComparator<512>,
 //GenericEqualityChecker<512>>;
 //
-//template class BWTree<TupleKey, ItemPointer, TupleKeyComparator,
-//TupleKeyEqualityChecker>;
+// template class BWTree<TupleKey, ItemPointer, TupleKeyComparator,
+// TupleKeyEqualityChecker>;
 
 
 // Add your function definitions here
