@@ -27,8 +27,6 @@ namespace peloton {
 namespace index {
 using namespace std;
 
-class ItemPointerEqualityChecker;
-
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 class BWTreeIndex : public Index {
@@ -81,16 +79,6 @@ class BWTreeIndex : public Index {
   RWLock index_lock;
 };
 
-class ItemPointerEqualityChecker {
-private:
-  /* data */
-public:
-    inline bool operator()(const ItemPointer &lhs,
-                         const ItemPointer &rhs) const {
-      return (lhs.first == rhs.first) && (lhs.second == rhs.second);
-  }
-  ItemPointerEqualityChecker() = default;
-};
 
 }  // End index namespace
 }  // End peloton namespace

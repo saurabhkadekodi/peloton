@@ -18,6 +18,8 @@
 #include <utility>
 #include <set>
 
+#include "../common/types.h"
+
 namespace peloton {
 namespace index {
 using namespace std;
@@ -48,6 +50,18 @@ typedef int node_type_t;
 #define REMOVE 8
 #define SPLIT_INDEX 9
 #define REMOVE_INDEX 10
+
+
+class ItemPointerEqualityChecker {
+private:
+  /* data */
+public:
+    inline bool operator()(const ItemPointer &lhs,
+                         const ItemPointer &rhs) const {
+      return (lhs.block == rhs.block) && (lhs.offset == rhs.offset);
+  }
+  ItemPointerEqualityChecker() = default;
+};
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
 class BWTree;
@@ -104,7 +118,7 @@ class BWTree {
   CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table;
  // BWTree() {CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> b;
 //BWTree() {}
-BWTree(KeyComparator comparator, KeyEqualityChecker equals) : comparator(comparator), equals(equals), value_equals(value_equals) {}
+BWTree(KeyComparator comparator, KeyEqualityChecker equals, ItemPointerEqualityChecker value_equals) : comparator(comparator), equals(equals), value_equals(value_equals) {}
  // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table) : table(table){}
   uint32_t min_node_size;
   uint32_t max_node_size;
