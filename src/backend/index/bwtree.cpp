@@ -210,7 +210,50 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *cur_pointer = node_pointer;
   while(cur_pointer->next)
     cur_pointer = cur_pointer->next;
-LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(cur_pointer); uint64_t cur_node_size = Get_size(node_id); if(cur_node_size < max_node_size){ return leaf_pointer->Leaf_insert(key, value); } else{ return leaf_pointer->Leaf_split(path, location, key, value); } return false; } template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker> bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(KeyType key, ValueType value) { uint64_t *path = (uint64_t *)malloc(sizeof(uint64_t) * tree_height); uint64_t location; uint64_t node_id = Search(key, path, location); pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *, uint32_t> node_ = table.Get(node_id); Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_pointer = node_.first; // uint32_t chain_len = node_.second; Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *cur_pointer = node_pointer; while(cur_pointer->next) cur_pointer = cur_pointer->next; LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(cur_pointer); uint64_t cur_node_size = Get_size(node_id); if(cur_node_size > min_node_size){ return leaf_pointer->Leaf_delete(key, value); } else{ return leaf_pointer->Leaf_merge(path, location, key, value); } return false; } template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker> uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(KeyType key, uint64_t *path, uint64_t &location) {
+LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(cur_pointer); 
+  uint64_t cur_node_size = Get_size(node_id);
+  if(cur_node_size < max_node_size){
+    return leaf_pointer->Leaf_insert(key, value);
+  }
+  else{
+    return leaf_pointer->Leaf_split(path, location, key, value);
+  }
+  return false;
+}
+
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
+bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(KeyType key, ValueType value) {
+
+  uint64_t *path = (uint64_t *)malloc(sizeof(uint64_t) * tree_height);
+  uint64_t location;
+  uint64_t node_id = Search(key, path, location);
+  
+  pair<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *, uint32_t> node_ = table.Get(node_id);
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_pointer = node_.first;
+  // uint32_t chain_len = node_.second;
+
+
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *cur_pointer = node_pointer;
+  while(cur_pointer->next)
+    cur_pointer = cur_pointer->next;
+
+  LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(cur_pointer);
+
+
+  uint64_t cur_node_size = Get_size(node_id);
+  if(cur_node_size > min_node_size){
+    return leaf_pointer->Leaf_delete(key, value);
+  }
+  else{
+    return leaf_pointer->Leaf_merge(path, location, key, value);
+  }
+  return false;
+}
+
+
+template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
+uint64_t 
+BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(KeyType key, uint64_t *path, uint64_t &location) {
   uint64_t cur_id = root;
   uint64_t prev_id = cur_id;
   bool stop = false;
@@ -376,7 +419,6 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Leaf_spl
   uint64_t count = kv_list.size();
   // KeyType split_key = kv_list[count/2].first;
   // KeyType boundary_key = kv_list[count-1].first;
-  // TODO: Identify split and boundary keys;
   KeyType split_key;
   KeyType boundary_key;
 
