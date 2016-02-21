@@ -77,7 +77,9 @@ BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys(
 template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
 vector<ItemPointer>
 BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanKey(const storage::Tuple *key) {
-  vector<ItemPointer> result = container(key);
+  KeyType index_key;
+  index_key.SetFromKey(key);
+  vector<ItemPointer> result = container.Search_key(index_key);
   return result;
 }
 
