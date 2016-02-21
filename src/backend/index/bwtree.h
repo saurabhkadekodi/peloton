@@ -70,7 +70,7 @@ public:
   ~Node() {
     next -> ~Node();
   }
-  virtual bool Consolidate();
+  virtual bool Consolidate() = 0;
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
@@ -137,7 +137,7 @@ class InternalBWNode : public Node<KeyType, ValueType, KeyComparator, KeyEqualit
   bool Internal_split(uint64_t *path, uint64_t index, KeyType split_key, KeyType boundary_key, uint64_t new_node_id);
   bool Internal_delete(KeyType merged_key); 
   bool Internal_merge(uint64_t *path, uint64_t index, KeyType deleted_key);
-  bool Consolidate();
+  bool Consolidate() {return false;}
   uint64_t Get_child_id(KeyType key);
 };
 
@@ -165,6 +165,7 @@ class DeltaNode : public Node<KeyType, ValueType, KeyComparator, KeyEqualityChec
   ValueType value;
   DeltaNode(BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id, node_type_t type) :
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, type) {} // Default is INSERT type
+  bool Consolidate() {return false;}
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
@@ -174,6 +175,7 @@ class SplitIndexDeltaNode : public Node<KeyType, ValueType, KeyComparator, KeyEq
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, SPLIT_INDEX) {}
   KeyType split_key, boundary_key;
   uint64_t new_split_node_id;
+  bool Consolidate() {return false;}
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
@@ -183,6 +185,7 @@ class RemoveIndexDeltaNode : public Node<KeyType, ValueType, KeyComparator, KeyE
   RemoveIndexDeltaNode(BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id) :
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, REMOVE_INDEX) {}
   KeyType deleted_key;
+  bool Consolidate() {return false;}
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
@@ -192,6 +195,7 @@ class SplitDeltaNode : public Node<KeyType, ValueType, KeyComparator, KeyEqualit
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, SPLIT) {}
   KeyType split_key;
   uint64_t target_node_id; 
+  bool Consolidate() {return false;}
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
@@ -201,6 +205,7 @@ class RemoveDeltaNode : public Node<KeyType, ValueType, KeyComparator, KeyEquali
   //Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_to_be_removed; // can be delta Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> or internal_bw_node or leaf_bw_node
   RemoveDeltaNode(BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id) :
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, REMOVE) {}
+  bool Consolidate() {return false;}
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
@@ -210,6 +215,7 @@ class MergeDeltaNode : public Node<KeyType, ValueType, KeyComparator, KeyEqualit
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id, MERGE) {}
   KeyType merge_key;
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_to_be_merged;
+  bool Consolidate() {return false;}
 };
 }  // End index namespace
 }  // End peloton namespace
