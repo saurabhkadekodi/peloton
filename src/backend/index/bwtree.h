@@ -100,10 +100,11 @@ class BWTree {
  public:
   KeyComparator comparator;
   KeyEqualityChecker equals;
+  ItemPointerEqualityChecker value_equals;
   CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table;
  // BWTree() {CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> b;
 //BWTree() {}
-BWTree(KeyComparator comparator, KeyEqualityChecker equals) : comparator(comparator), equals(equals) {}
+BWTree(KeyComparator comparator, KeyEqualityChecker equals) : comparator(comparator), equals(equals), value_equals(value_equals) {}
  // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table) : table(table){}
   uint32_t min_node_size;
   uint32_t max_node_size;
