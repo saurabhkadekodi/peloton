@@ -27,8 +27,8 @@ namespace peloton {
 namespace index {
 using namespace std;
 
-
-template <typename KeyType, typename ValueType, typename KeyComparator, typename KeyEqualityChecker>
+template <typename KeyType, typename ValueType, typename KeyComparator,
+          typename KeyEqualityChecker>
 class BWTreeIndex : public Index {
   friend class IndexFactory;
 
@@ -39,32 +39,30 @@ class BWTreeIndex : public Index {
 
   ~BWTreeIndex();
 
-  bool InsertEntry(const storage::Tuple *key, const ItemPointer location); // rajat
+  bool InsertEntry(const storage::Tuple *key,
+                   const ItemPointer location);  // rajat
 
-  bool DeleteEntry(const storage::Tuple *key, const ItemPointer location); // saurabh
+  bool DeleteEntry(const storage::Tuple *key,
+                   const ItemPointer location);  // saurabh
 
   vector<ItemPointer> Scan(const vector<Value> &values,
-                                const vector<oid_t> &key_column_ids,
-                                const vector<ExpressionType> &expr_types,
-                                const ScanDirectionType& scan_direction); // saurabh
+                           const vector<oid_t> &key_column_ids,
+                           const vector<ExpressionType> &expr_types,
+                           const ScanDirectionType &scan_direction);  // saurabh
 
-  vector<ItemPointer> ScanAllKeys(); // saurabh
+  vector<ItemPointer> ScanAllKeys();  // saurabh
 
-  vector<ItemPointer> ScanKey(const storage::Tuple *key); // saurabh
+  vector<ItemPointer> ScanKey(const storage::Tuple *key);  // saurabh
 
   string GetTypeName() const;
 
   uint64_t tree_height;
 
   // TODO: Implement this
-  bool Cleanup() {
-    return true;
-  }
+  bool Cleanup() { return true; }
 
   // TODO: Implement this
-  size_t GetMemoryFootprint() {
-    return 0;
-  }
+  size_t GetMemoryFootprint() { return 0; }
 
  protected:
   // container
@@ -78,7 +76,6 @@ class BWTreeIndex : public Index {
   // synch helper
   RWLock index_lock;
 };
-
 
 }  // End index namespace
 }  // End peloton namespace
