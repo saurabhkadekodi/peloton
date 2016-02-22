@@ -23,16 +23,16 @@ using namespace std;  // SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTree(
-    KeyComparator comparator, KeyEqualityChecker equals,
+    IndexMetadata *metadata, KeyComparator comparator, KeyEqualityChecker equals,
     ItemPointerEqualityChecker value_equals)
-    : comparator(comparator), equals(equals), value_equals(value_equals) {
+    : metadata(metadata), comparator(comparator), equals(equals), value_equals(value_equals) {
   min_node_size = 2;
   max_node_size = 4;
   tree_height = 1;
   root = table.Get_next_id();
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* root_node =
       new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-          *this, root);
+          this->metadata, *this, root);
   table.Install(root, root_node);
 }
 
@@ -113,7 +113,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_root(
   InternalBWNode<KeyType, ValueType, KeyComparator,
                  KeyEqualityChecker>* internal_pointer =
       new InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-          *this, new_root_id);
+          this->metadata, *this, new_root_id);
   internal_pointer->leftmost_pointer = left_pointer;
   internal_pointer->key_list.insert(
       pair<KeyType, uint64_t>(split_key, right_pointer));
@@ -137,7 +137,7 @@ vector<ValueType> BWTree<KeyType, ValueType, KeyComparator,
       table.Get(node_id);
   // Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_pointer =
   // node_.first;
-  multimap<KeyType, ValueType, KeyComparator> deleted_keys;
+  multimap<KeyType, ValueType, KeyComparator> deleted_keys(KeyComparator(this->metadata));
   while (node_pointer) {
     switch (node_pointer->type) {
       case (INSERT): {
@@ -305,8 +305,8 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
   uint64_t prev_id = cur_id;
   bool stop = false;
   bool try_consolidation = true;
-  multimap<KeyType, ValueType, KeyComparator> deleted_keys;
-  set<KeyType, KeyComparator> deleted_indexes;
+  multimap<KeyType, ValueType, KeyComparator> deleted_keys(KeyComparator(this->metadata));
+  set<KeyType, KeyComparator> deleted_indexes(KeyComparator(this->metadata));
   uint64_t index = 0;
   location = 0;
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
@@ -495,7 +495,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
       new_leaf_node =
           new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-              this->my_tree, new_node_id);
+              this->my_tree.metadata, this->my_tree, new_node_id);
   new_leaf_node->sibling_id = sibling_id;
   sibling_id = new_node_id;
 
@@ -951,6 +951,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
     */
 }
 
+
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 bool LeafBWNode<KeyType, ValueType, KeyComparator,
@@ -962,9 +963,9 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
       new_leaf_node =
           new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-              this->my_tree, new_id);
-  multimap<KeyType, ValueType, KeyComparator> insert_set;
-  multimap<KeyType, ValueType, KeyComparator> delete_set;
+              this->my_tree.metadata, this->my_tree, new_id);
+  multimap<KeyType, ValueType, KeyComparator> insert_set(KeyComparator(this->my_tree.metadata));
+  multimap<KeyType, ValueType, KeyComparator> delete_set(KeyComparator(this->my_tree.metadata));
   DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temp =
       dynamic_cast<
           DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
@@ -1148,7 +1149,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
   InternalBWNode<KeyType, ValueType, KeyComparator,
                  KeyEqualityChecker>* new_internal_node =
       new InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-          this->my_tree, new_internal_node_id);
+          this->my_tree.metadata, this->my_tree, new_internal_node_id);
   new_internal_node->sibling_id = sibling_id;
   sibling_id = new_internal_node_id;
 

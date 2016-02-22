@@ -17,7 +17,7 @@
 #include <map>
 #include <utility>
 #include <set>
-
+#include "backend/index/index_key.h"
 #include "../common/types.h"
 
 namespace peloton {
@@ -120,6 +120,7 @@ class BWTree {
   // friend class BWTreeIndex<KeyType, ValueType, KeyComparator,
   // KeyEqualityChecker>;
  public:
+  IndexMetadata *metadata;
   KeyComparator comparator;
   KeyEqualityChecker equals;
   ItemPointerEqualityChecker value_equals;
@@ -127,7 +128,7 @@ class BWTree {
   // BWTree() {CASMappingTable<KeyType, ValueType, KeyComparator,
   // KeyEqualityChecker> b;
   // BWTree() {}
-  BWTree(KeyComparator comparator, KeyEqualityChecker equals,
+  BWTree(IndexMetadata *metadata, KeyComparator comparator, KeyEqualityChecker equals,
          ItemPointerEqualityChecker value_equals);
   // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator,
   // KeyEqualityChecker> table) : table(table){}
@@ -164,10 +165,10 @@ class InternalBWNode
   uint64_t low;
   uint64_t high;
   InternalBWNode(
-      BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt,
+      IndexMetadata *metadata, BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt,
       uint64_t id)
       : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-            bwt, id, INTERNAL_BW_NODE) {}
+            bwt, id, INTERNAL_BW_NODE), key_list(KeyComparator(metadata)) {}
   bool Internal_insert(KeyType split_key, KeyType boundary_key,
                        uint64_t new_node_id);
   bool Internal_split(uint64_t* path, uint64_t index, KeyType split_key,
@@ -187,10 +188,11 @@ class LeafBWNode
   uint64_t sibling_id;
   uint64_t low;
   uint64_t high;
-  LeafBWNode(BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt,
+  LeafBWNode(IndexMetadata *metadata, BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt,
              uint64_t id)
       : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
             bwt, id, LEAF_BW_NODE),
+		kv_list(KeyComparator(metadata)),
         sibling_id(0),
         low(0),
         high(0) {}
