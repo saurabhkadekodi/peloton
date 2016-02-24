@@ -211,7 +211,7 @@ class DeltaNode
   KeyType key;
   ValueType value;
   DeltaNode(BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt,
-            uint64_t id, node_type_t type)
+            uint64_t id, node_type_t type=INSERT)
       : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
             bwt, id, type) {}  // Default is INSERT type
   bool Consolidate() { return false; }
