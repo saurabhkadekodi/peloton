@@ -257,7 +257,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
     DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* delta_node = dynamic_cast<
           DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
           cur_pointer);
-    if (KeyEqualityChecker(delta_node -> key, key) && value_equals(delta_node -> value, value) && !allow_duplicates)
+    if (equals(delta_node -> key, key) && value_equals(delta_node -> value, value) && !allow_duplicates)
     {
       if (!can_insert && cur_pointer -> type == INSERT)
       {
@@ -309,7 +309,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
     DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* delta_node = dynamic_cast<
           DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
           cur_pointer);
-    if (KeyEqualityChecker(delta_node -> key, key) && value_equals(delta_node -> value, value)) {
+    if (equals(delta_node -> key, key) && value_equals(delta_node -> value, value)) {
       // Can't delete a key,value twice, but we return false anyway
       free(path);
       return false;

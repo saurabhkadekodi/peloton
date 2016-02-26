@@ -163,6 +163,8 @@ class InternalBWNode
       key_list;  // all keys have children
   uint64_t leftmost_pointer;
   uint64_t sibling_id;
+  uint64_t left_sibling;
+  uint64_t right_sibling;
   uint64_t low;
   uint64_t high;
   InternalBWNode(
@@ -187,6 +189,8 @@ class LeafBWNode
  public:
   multimap<KeyType, ValueType, KeyComparator> kv_list;  // all key value pairs
   uint64_t sibling_id;
+  uint64_t left_sibling;
+  uint64_t right_sibling;
   uint64_t low;
   uint64_t high;
   LeafBWNode(IndexMetadata *metadata, BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt,
