@@ -124,12 +124,13 @@ class BWTree {
   KeyComparator comparator;
   KeyEqualityChecker equals;
   ItemPointerEqualityChecker value_equals;
+  bool allow_duplicates;
   CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table;
   // BWTree() {CASMappingTable<KeyType, ValueType, KeyComparator,
   // KeyEqualityChecker> b;
   // BWTree() {}
   BWTree(IndexMetadata *metadata, KeyComparator comparator, KeyEqualityChecker equals,
-         ItemPointerEqualityChecker value_equals);
+         ItemPointerEqualityChecker value_equals, bool allow_duplicates);
   // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator,
   // KeyEqualityChecker> table) : table(table){}
   uint32_t min_node_size;
