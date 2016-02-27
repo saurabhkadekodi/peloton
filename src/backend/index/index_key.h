@@ -117,6 +117,7 @@ class IntsKey {
    * Rinse and repeat with the less significant bytes.
    *
    */
+   char *key_tuple;
   template <typename KeyValueType>
   inline void InsertKeyValue(int &key_offset, int &intra_key_offset,
                              uint64_t key_value) {
@@ -421,7 +422,7 @@ class GenericKey {
 
   // actual location of data, extends past the end.
   char data[KeySize];
-
+  char *key_tuple;
  private:
 };
 

@@ -284,9 +284,15 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   uint64_t cur_node_size = Get_size(node_id);
   if (cur_node_size < max_node_size) {
     free(path);
-    return leaf_pointer->Leaf_insert(key, value);
+    auto retval = leaf_pointer->Leaf_insert(key, value);
+    auto root_node = table.Get(root);
+    Traverse(root_node);
+    return retval;
   } else {
-    return leaf_pointer->Leaf_split(path, location, key, value);
+    auto retval = leaf_pointer->Leaf_split(path, location, key, value);
+    auto root_node = table.Get(root);
+    Traverse(root_node);
+    return retval;
   }
   assert(false);
   return false;
@@ -331,9 +337,15 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
   uint64_t cur_node_size = Get_size(node_id);
   if (cur_node_size > min_node_size) {
     free(path);
-    return leaf_pointer->Leaf_delete(key, value);
+    auto retval = leaf_pointer->Leaf_delete(key, value);
+    auto root_node = table.Get(root);
+    Traverse(root_node);
+    return retval;
   } else {
-    return leaf_pointer->Leaf_merge(path, location, key, value);
+    auto retval = leaf_pointer->Leaf_merge(path, location, key, value);
+    auto root_node = table.Get(root);
+    Traverse(root_node);
+    return retval;
   }
   return false;
 }
@@ -1283,6 +1295,85 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
   return this->my_tree.table.Install(this->id, remove_index);
 }
 // Explicit template instantiations
+
+template <typename KeyType, typename ValueType, typename KeyComparator,
+          typename KeyEqualityChecker>
+void BWTree<KeyType, ValueType, KeyComparator,
+                KeyEqualityChecker>::Traverse(Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n) {
+    /*
+     * Inorder traversal of the BW Tree for debugging purposes.
+     */
+    switch(n->type) {
+      case INTERNAL_BW_NODE: {
+        LOG_DEBUG("INTERNAL_BW_NODE id = %lu", n->id);
+        InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            internal_pointer =
+                dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
+                                            KeyEqualityChecker>*>(n);
+        Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+          leftmost = n->my_tree.table.Get(internal_pointer->leftmost_pointer);
+        Traverse(leftmost);
+        for(auto it=internal_pointer->key_list.begin(); it != internal_pointer->key_list.end(); it++) {
+          auto child = n->my_tree.table.Get(it->second);
+          Traverse(child);
+        }
+        }
+        break;
+      case LEAF_BW_NODE: {
+        LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            leaf_pointer = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
+                                            KeyEqualityChecker>*>(n);
+        LOG_DEBUG("LEAF_BW_NODE id = %lu | count = %lu", n->id, leaf_pointer->kv_list.size());
+        for(auto it=leaf_pointer->kv_list.begin(); it != leaf_pointer->kv_list.end(); it++) {
+          auto key = it->first;
+          //auto value = it->second;
+          //std::cout << "key = " << key << " | value = " << value << std::endl;
+          //LOG_DEBUG("key = %s", key.GetTupleForComparison(key.key_tuple_schema).GetData());
+          LOG_DEBUG("key = %s", key.key_tuple);
+        }
+        }
+        break;
+      case INSERT: {
+        LOG_DEBUG("INSERT id = %lu", n->id);
+        n = n->next;
+        }
+        break;
+      case UPDATE: {
+        LOG_DEBUG("UPDATE id = %lu", n->id);
+        n = n->next;
+        }
+        break;
+      case DELETE: {
+        LOG_DEBUG("DELETE id = %lu", n->id);
+        n = n->next;
+        }
+        break;
+      case SPLIT: {
+        LOG_DEBUG("SPLIT id = %lu", n->id);
+        n = n->next;
+        }
+        break;
+      case MERGE: {
+        LOG_DEBUG("MERGE id = %lu", n->id);
+        n = n->next;
+        }
+        break;
+      case REMOVE: {
+        LOG_DEBUG("REMOVE id = %lu", n->id);
+        }
+        break;
+      case SPLIT_INDEX: {
+        LOG_DEBUG("SPLIT_INDEX id = %lu", n->id);
+        n = n->next;
+        }
+        break;
+      case REMOVE_INDEX: {
+        LOG_DEBUG("REMOVE_INDEX id = %lu", n->id);
+        n = n->next;
+        }
+        break;
+    }
+}
 
 template class BWTree<IntsKey<1>, ItemPointer, IntsComparator<1>,
                       IntsEqualityChecker<1>>;

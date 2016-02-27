@@ -119,6 +119,8 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
 class BWTree {
   // friend class BWTreeIndex<KeyType, ValueType, KeyComparator,
   // KeyEqualityChecker>;
+ private:
+   void Traverse(Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *n);
  public:
   IndexMetadata *metadata;
   KeyComparator comparator;
