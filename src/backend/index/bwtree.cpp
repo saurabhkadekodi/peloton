@@ -114,7 +114,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
   // Collect delta chains
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temp = node_;
 
-  while(temp != nullptr) {
+  while(temp->next != nullptr) {
       stack.push_back(temp);
       temp = temp -> next;
   }
@@ -128,6 +128,89 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
           new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
               this->my_tree.metadata, this->my_tree, new_node_id);
   }
+  else
+  {
+
+    InternalBWNode<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> base = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
+
+    InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+      new_base =
+          new InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
+              this->my_tree.metadata, this->my_tree, new_node_id);
+    typename multimap<KeyType, ValueType>::iterator iter = base->key_list.begin();
+    for(;iter!=base->key_list.end();iter++)
+    {
+      if(encounter_split_delta && !comparator(iter->first, split_key))
+        continue;
+      new_base->key_list.insert(*iter);
+    }
+    stack.pop_front();
+    new_base->leftmost_pointer = base->leftmost_pointer;
+    new_base->left_sibling = base->left_sibling;
+    new_base->right_sibling = base->right_sibling;
+    while(!stack.empty())
+    {
+      temp = stack.front();
+      switch(temp->type)
+      {
+        case(SPLIT_INDEX):
+        {
+          SplitIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+              split_pointer =
+                  dynamic_cast<SplitIndexNode<KeyType, ValueType, KeyComparator,
+                                         KeyEqualityChecker>*>(temp);
+          new_base->key_list.insert(pair<KeyType, uint64_t>(split_pointer->split_key, split_pointer->new_split_node_id));
+          break;
+        }
+        case(REMOVE_INDEX):
+        {
+          RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+              remove_pointer =
+                  dynamic_cast<RemoveIndexNode<KeyType, ValueType, KeyComparator,
+                                         KeyEqualityChecker>*>(temp);
+          new_base->key_list.insert(pair<KeyType, uint64_t>(remove_pointer->deleted_key);
+          break;
+        }
+        case(SPLIT):
+          break;
+        case(MERGE):
+        {
+          MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+              merge_pointer =
+                  dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator,
+                                              KeyEqualityChecker>*>(node_pointer);
+
+          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* merged_node_pointer = 
+                  dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
+                                              KeyEqualityChecker>*>(merge_pointer->node_to_be_merged);
+          iter = merged_node_pointer->key_list.begin();
+          for(;iter!=merged_node_pointer->key_list.end();iter++)
+          {
+            new_base->key_list.insert(*iter);
+          }
+          new_base->right_sibling = merged_node_pointer->right_sibling;
+          uint64_t right_sibiling_node_id = merged_node_pointer->right_sibling;
+
+          Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* right_sibling_temp =
+              this->my_tree.table.Get(right_sibling_node_id);
+
+          while(right_sibling_temp->next != nullptr) {
+              right_sibling_temp = right_sibling_temp -> next;
+          }
+          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* right_sibling_pointer = 
+                  dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
+                                              KeyEqualityChecker>*>(right_sibling_temp);
+          right_sibling_temp->left_sibling = id;
+          
+          freelist.insert(merge_pointer->node_to_be_merged);
+
+        }
+      }
+      stack.pop_front();
+    }
+  }
+
+
 
   return false;
 }
