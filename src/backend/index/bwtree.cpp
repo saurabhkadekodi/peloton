@@ -1208,12 +1208,24 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
             mdn =
                 dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator,
                                             KeyEqualityChecker>*>(node_pointer);
-        LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-            to_be_merged =
-                dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
-                                        KeyEqualityChecker>*>(
-                    mdn->node_to_be_merged);
-        count += to_be_merged->kv_list.size();
+
+        Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            merged_node_pointer = mdn->node_to_be_merged;
+        if (merged_node_pointer->type == LEAF_BW_NODE) {
+          LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+              to_be_merged =
+                  dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
+                                          KeyEqualityChecker>*>(
+                      merged_node_pointer);
+          count += to_be_merged->kv_list.size();
+        } else {
+          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+              to_be_merged =
+                  dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
+                                              KeyEqualityChecker>*>(
+                      merged_node_pointer);
+          count += to_be_merged->key_list.size();
+        }
       } break;
       case (REMOVE):
         // return 0;  // Remove node is still accessable
@@ -1247,8 +1259,7 @@ template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
 vector<ItemPointer>
 BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
-    const vector<Value>& values,
-    const vector<oid_t>& key_column_ids,
+    const vector<Value>& values, const vector<oid_t>& key_column_ids,
     const vector<ExpressionType>& expr_types,
     const ScanDirectionType& scan_direction) {
   vector<ItemPointer> result;
@@ -1399,7 +1410,6 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys() {
 
   start_key.reset(new storage::Tuple(metadata->GetKeySchema(), true));
   index_key.SetFromKey(start_key.get());
-
 
   uint64_t* path = (uint64_t*)malloc(tree_height * sizeof(uint64_t));
   uint64_t location;
