@@ -127,20 +127,23 @@ class BWTree {
   // friend class BWTreeIndex<KeyType, ValueType, KeyComparator,
   // KeyEqualityChecker>;
  private:
-   void Traverse(Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *n);
+  void Traverse(Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n);
+
  public:
-  IndexMetadata *metadata;
+  IndexMetadata* metadata;
   KeyComparator comparator;
   KeyEqualityChecker equals;
   ItemPointerEqualityChecker value_equals;
   bool allow_duplicates;
-  set<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> freelist(KeyComparator(metadata));
+  set<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> freelist(
+      KeyComparator(metadata));
   CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table;
   // BWTree() {CASMappingTable<KeyType, ValueType, KeyComparator,
   // KeyEqualityChecker> b;
   // BWTree() {}
-  BWTree(IndexMetadata *metadata, KeyComparator comparator, KeyEqualityChecker equals,
-         ItemPointerEqualityChecker value_equals, bool allow_duplicates);
+  BWTree(IndexMetadata* metadata, KeyComparator comparator,
+         KeyEqualityChecker equals, ItemPointerEqualityChecker value_equals,
+         bool allow_duplicates);
   // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator,
   // KeyEqualityChecker> table) : table(table){}
   uint32_t min_node_size;
@@ -162,10 +165,10 @@ class BWTree {
   vector<ValueType> Search_all_keys();
   vector<ValueType> Search_range(KeyType low, KeyType high);
   uint64_t Get_size(uint64_t id);
-  vector<ItemPointer> Scan(const vector<Value> &values,
-                           const vector<oid_t> &key_column_ids,
-                           const vector<ExpressionType> &expr_types,
-                           const ScanDirectionType &scan_direction);  // saurabh
+  vector<ItemPointer> Scan(const vector<Value>& values,
+                           const vector<oid_t>& key_column_ids,
+                           const vector<ExpressionType>& expr_types,
+                           const ScanDirectionType& scan_direction);  // saurabh
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
@@ -182,10 +185,12 @@ class InternalBWNode
   uint64_t low;
   uint64_t high;
   InternalBWNode(
-      IndexMetadata *metadata, BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt,
+      IndexMetadata* metadata,
+      BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt,
       uint64_t id)
       : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-            bwt, id, INTERNAL_BW_NODE), key_list(KeyComparator(metadata)) {}
+            bwt, id, INTERNAL_BW_NODE),
+        key_list(KeyComparator(metadata)) {}
   bool Internal_insert(KeyType split_key, KeyType boundary_key,
                        uint64_t new_node_id);
   bool Internal_split(uint64_t* path, uint64_t index, KeyType requested_key,
@@ -207,11 +212,12 @@ class LeafBWNode
   uint64_t right_sibling;
   uint64_t low;
   uint64_t high;
-  LeafBWNode(IndexMetadata *metadata, BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt,
+  LeafBWNode(IndexMetadata* metadata,
+             BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt,
              uint64_t id)
       : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
             bwt, id, LEAF_BW_NODE),
-		kv_list(KeyComparator(metadata)),
+        kv_list(KeyComparator(metadata)),
         sibling_id(0),
         low(0),
         high(0) {}
@@ -230,7 +236,7 @@ class DeltaNode
   KeyType key;
   ValueType value;
   DeltaNode(BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt,
-            uint64_t id, node_type_t type=INSERT)
+            uint64_t id, node_type_t type = INSERT)
       : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
             bwt, id, type) {}  // Default is INSERT type
   bool Consolidate() { return false; }
@@ -297,7 +303,8 @@ class RemoveDeltaNode
       BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt,
       uint64_t id)
       : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id,
-                                                                    REMOVE), direction(LEFT) {}
+                                                                    REMOVE),
+        direction(LEFT) {}
   bool Consolidate() { return false; }
 };
 
