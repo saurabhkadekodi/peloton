@@ -108,7 +108,7 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
     uint64_t id, bool force) {
   bool ret_val = true;
-  force = force; //TODO: we don't care about it for now
+  force = force;  // TODO: we don't care about it for now
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ =
       this->table.Get(id);
   deque<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> stack;
@@ -117,89 +117,91 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
 
   bool encounter_split_delta = false;
   KeyType split_key;
-  while(temp -> next != nullptr) {
-      stack.push_back(temp);
-      temp = temp -> next;
-      if (temp -> type == SPLIT)
-      {
-        SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* split_delta =
-         dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
-        split_key = split_delta -> split_key;
-        encounter_split_delta = true;
-      }
+  while (temp->next != nullptr) {
+    stack.push_back(temp);
+    temp = temp->next;
+    if (temp->type == SPLIT) {
+      SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+          split_delta =
+              dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator,
+                                          KeyEqualityChecker>*>(temp);
+      split_key = split_delta->split_key;
+      encounter_split_delta = true;
+    }
   }
 
-  if (temp -> type == LEAF_BW_NODE)
-  {
+  if (temp->type == LEAF_BW_NODE) {
     LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* base =
-    dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
-  LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-      new_base =
-          new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-              this->metadata, *this, base -> id);
-    typename multimap<KeyType,ValueType, KeyComparator>::iterator base_it = base -> kv_list.begin();
-    new_base -> left_sibling = base -> left_sibling;
-    new_base -> right_sibling = base -> right_sibling;
-    for (; base_it != base -> kv_list.end(); base_it++) {
-      if (encounter_split_delta && !comparator(base_it -> first, split_key))
-      {
+        dynamic_cast<
+            LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+            temp);
+    LeafBWNode<KeyType, ValueType, KeyComparator,
+               KeyEqualityChecker>* new_base =
+        new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
+            this->metadata, *this, base->id);
+    typename multimap<KeyType, ValueType, KeyComparator>::iterator base_it =
+        base->kv_list.begin();
+    new_base->left_sibling = base->left_sibling;
+    new_base->right_sibling = base->right_sibling;
+    for (; base_it != base->kv_list.end(); base_it++) {
+      if (encounter_split_delta && !comparator(base_it->first, split_key)) {
         continue;
       } else {
         KeyType key;
         ValueType value;
-        new_base -> kv_list.insert(pair<KeyType, ValueType>(key, value));
+        new_base->kv_list.insert(pair<KeyType, ValueType>(key, value));
       }
     }
-   while(!stack.empty()) {
+    while (!stack.empty()) {
       temp = stack.back();
       stack.pop_back();
-      if (temp -> type == INSERT)
-      {
-        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* insert_delta =
-        dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
-        new_base->kv_list.insert(pair<KeyType, ValueType>(insert_delta -> key, insert_delta -> value));
-      } else if (temp -> type == DELETE) {
-        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* delete_delta =
-        dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
+      if (temp->type == INSERT) {
+        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            insert_delta =
+                dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator,
+                                       KeyEqualityChecker>*>(temp);
+        new_base->kv_list.insert(
+            pair<KeyType, ValueType>(insert_delta->key, insert_delta->value));
+      } else if (temp->type == DELETE) {
+        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            delete_delta =
+                dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator,
+                                       KeyEqualityChecker>*>(temp);
         pair<typename multimap<KeyType, ValueType>::iterator,
-               typename multimap<KeyType, ValueType>::iterator> values =
-              new_base -> kv_list.equal_range(delete_delta -> key);
-        typename multimap<KeyType, ValueType, KeyEqualityChecker>::iterator it = values.first;
-        for (;it!=values.second;it++) {
-          if (value_equals(it -> second, delete_delta -> value))
-          {
+             typename multimap<KeyType, ValueType>::iterator> values =
+            new_base->kv_list.equal_range(delete_delta->key);
+        typename multimap<KeyType, ValueType, KeyEqualityChecker>::iterator it =
+            values.first;
+        for (; it != values.second; it++) {
+          if (value_equals(it->second, delete_delta->value)) {
             new_base->kv_list.erase(it);
             break;
           }
         }
-      } else if (temp -> type == SPLIT)
-      {
+      } else if (temp->type == SPLIT) {
         LOG_DEBUG("Bypass the split delta");
       } else {
         assert(false);
       }
-   }
-   ret_val = this -> table.Install(base -> id, new_base);
-   this -> freelist.insert(base);
-   if (!ret_val)
-   {
-     return ret_val;
-   }
-  }
-  else
-  {
-
-    InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* base =
-     dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
+    }
+    ret_val = this->table.Install(base->id, new_base);
+    this->freelist.insert(base);
+    if (!ret_val) {
+      return ret_val;
+    }
+  } else {
+    InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+        base = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
+                                           KeyEqualityChecker>*>(temp);
 
     InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-      new_base =
-          new InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-              this->metadata, *this, id);
-    typename multimap<KeyType, uint64_t, KeyComparator>::iterator iter = base->key_list.begin();
-    for(;iter!=base->key_list.end();iter++)
-    {
-      if(encounter_split_delta && !comparator(iter->first, split_key))
+        new_base =
+            new InternalBWNode<KeyType, ValueType, KeyComparator,
+                               KeyEqualityChecker>(this->metadata, *this, id);
+    typename multimap<KeyType, uint64_t, KeyComparator>::iterator iter =
+        base->key_list.begin();
+    for (; iter != base->key_list.end(); iter++) {
+      if (encounter_split_delta && !comparator(iter->first, split_key))
         continue;
       new_base->key_list.insert(*iter);
     }
@@ -208,75 +210,72 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
     new_base->leftmost_pointer = base->leftmost_pointer;
     new_base->left_sibling = base->left_sibling;
     new_base->right_sibling = base->right_sibling;
-    while(!stack.empty())
-    {
+    while (!stack.empty()) {
       temp = stack.back();
-      switch(temp->type)
-      {
-        case(SPLIT_INDEX):
-        {
-          SplitIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-              split_pointer =
-                  dynamic_cast<SplitIndexDeltaNode<KeyType, ValueType, KeyComparator,
-                                         KeyEqualityChecker>*>(temp);
-          new_base->key_list.insert(pair<KeyType, uint64_t>(split_pointer->split_key, split_pointer->new_split_node_id));
+      switch (temp->type) {
+        case (SPLIT_INDEX): {
+          SplitIndexDeltaNode<KeyType, ValueType, KeyComparator,
+                              KeyEqualityChecker>* split_pointer =
+              dynamic_cast<SplitIndexDeltaNode<
+                  KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+                  temp);
+          new_base->key_list.insert(pair<KeyType, uint64_t>(
+              split_pointer->split_key, split_pointer->new_split_node_id));
           break;
         }
-        case(REMOVE_INDEX):
-        {
-          RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-              remove_pointer =
-                  dynamic_cast<RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator,
-                                         KeyEqualityChecker>*>(temp);
+        case (REMOVE_INDEX): {
+          RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator,
+                               KeyEqualityChecker>* remove_pointer =
+              dynamic_cast<RemoveIndexDeltaNode<
+                  KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+                  temp);
           new_base->key_list.erase(remove_pointer->deleted_key);
           break;
         }
-        case(SPLIT):
+        case (SPLIT):
           break;
-        case(MERGE):
-        {
+        case (MERGE): {
           MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
               merge_pointer =
                   dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator,
                                               KeyEqualityChecker>*>(temp);
 
-          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* merged_node_pointer =
+          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+              merged_node_pointer =
                   dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
-                                              KeyEqualityChecker>*>(merge_pointer->node_to_be_merged);
+                                              KeyEqualityChecker>*>(
+                      merge_pointer->node_to_be_merged);
           iter = merged_node_pointer->key_list.begin();
-          for(;iter!=merged_node_pointer->key_list.end();iter++)
-          {
+          for (; iter != merged_node_pointer->key_list.end(); iter++) {
             new_base->key_list.insert(*iter);
           }
           new_base->right_sibling = merged_node_pointer->right_sibling;
           uint64_t right_sibling_node_id = merged_node_pointer->right_sibling;
 
-          Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* right_sibling_temp =
-              this->table.Get(right_sibling_node_id);
+          Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+              right_sibling_temp = this->table.Get(right_sibling_node_id);
 
-          while(right_sibling_temp->next != nullptr) {
-              right_sibling_temp = right_sibling_temp -> next;
+          while (right_sibling_temp->next != nullptr) {
+            right_sibling_temp = right_sibling_temp->next;
           }
-          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* right_sibling_pointer =
+          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+              right_sibling_pointer =
                   dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
-                                              KeyEqualityChecker>*>(right_sibling_temp);
+                                              KeyEqualityChecker>*>(
+                      right_sibling_temp);
           right_sibling_pointer->left_sibling = id;
 
           this->freelist.insert(merge_pointer->node_to_be_merged);
-
         }
       }
       this->freelist.insert(temp);
       stack.pop_back();
     }
-     ret_val = this -> table.Install(id, new_base);
-     if (!ret_val)
-     {
-       return ret_val;
-     }
+    ret_val = this->table.Install(id, new_base);
+    if (!ret_val) {
+      return ret_val;
+    }
   }
-
-
 
   return false;
 }

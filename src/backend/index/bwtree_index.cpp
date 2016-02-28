@@ -64,10 +64,9 @@ template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
 vector<ItemPointer>
 BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
-     const vector<Value> &values,
-     const vector<oid_t> &key_column_ids,
-     const vector<ExpressionType> &expr_types,
-     const ScanDirectionType &scan_direction) {
+    const vector<Value> &values, const vector<oid_t> &key_column_ids,
+    const vector<ExpressionType> &expr_types,
+    const ScanDirectionType &scan_direction) {
   return container.Scan(values, key_column_ids, expr_types, scan_direction);
 }
 
