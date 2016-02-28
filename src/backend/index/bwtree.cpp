@@ -361,10 +361,11 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
 uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
     KeyType key, uint64_t* path, uint64_t& location) {
   uint64_t cur_id = root;
+  // TODO: why prev_id not used?
   uint64_t prev_id = cur_id;
   bool stop = false;
   bool try_consolidation = true;
-
+  prev_id = prev_id; // TODO: this is a work around for not being used
   int merge_dir = -2;
   bool need_redirection = false;
   // multimap<KeyType, ValueType, KeyComparator> deleted_keys(KeyComparator(this->metadata));
@@ -470,8 +471,8 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
         try_consolidation = false;
       } break;
       case (REMOVE): {
-        RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* remove_pointer = dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
-        merge_dir = merge_pointer -> direction;
+        RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* remove_pointer = dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
+        merge_dir = remove_pointer -> direction;
         if (merge_dir == UP) {
           // I will let you access it anyway
           node_pointer = remove_pointer->next;
@@ -483,6 +484,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
           try_consolidation = true;
         }
       }
+      // The following has been resolved in another manner
         // Should try to complete the SMO instead of going to the parent and
         // waiting for the merge thread to complete it
         break;
@@ -495,7 +497,8 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
         if (deleted_indexes.find(split_index_pointer->split_key) ==
             deleted_indexes.end()) {
           if (comparator(key, split_index_pointer->split_key) ||
-              !comparator(key, split_index_pointer->boundary_key)) {
+              (!comparator(key, split_index_pointer->boundary_key) &&
+                equals(key, split_index_pointer->boundary_key))) {
             node_pointer = split_index_pointer->next;
             try_consolidation = false;
           } else {
@@ -667,7 +670,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
   }
   // We are the root node
   if (index == 0) return true;
-  uint64_t neighbour_node_id = this -> left_sibling
+  uint64_t neighbour_node_id = this -> left_sibling;
   int direction = LEFT;
   if (this->left_sibling != 0) {
     neighbour_node_id = this->left_sibling;
@@ -753,7 +756,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
         R -> left_sibling = L -> id;
         R -> right_sibling = this -> right_sibling;
 
-        multimap<KeyType, uint64_t, KeyComparator> temp;
+        multimap<KeyType, uint64_t, KeyComparator> temp(KeyComparator(this->my_tree.metadata));
         uint64_t half_count = total_count / 2;
         if (direction == LEFT)
         {
@@ -818,8 +821,10 @@ temp_iterator++;
 
         ret_val = parent_pointer->Internal_delete(merge_node->merge_key);
       if (!ret_val) return false;
+      // we treat it as a split; sp means special purpose
+      KeyType sp_boundary_key = R -> key_list.end()->first;
 
-        ret_val = parent_pointer->Internal_insert(new_split_key, 0, R -> id);
+        ret_val = parent_pointer->Internal_insert(new_split_key, sp_boundary_key, R -> id);
       if (!ret_val) return false;
 
       return ret_val;
@@ -828,7 +833,8 @@ temp_iterator++;
   for (;this_iterator != this -> key_list.end(); this_iterator++) {
                             KeyType key = this_iterator->first;
              uint64_t value = this_iterator->second;
-    n_node_pointer -> Internal_insert(key, 0, value);
+             // This relies on the split_key <= search_key && search_key <= boundary_key
+    n_node_pointer -> Internal_insert(key, key, value);
   }
       uint64_t parent_size = this->my_tree.Get_size(parent_id);
       if (parent_size - 1 > this->my_tree.min_node_size || index == 0)
@@ -867,7 +873,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
   // We are the root node
   if (index == 0) return true;
 
-  uint64_t neighbour_node_id = this -> left_sibling
+  uint64_t neighbour_node_id = this -> left_sibling;
   int direction = LEFT;
   if (this->left_sibling != 0) {
     neighbour_node_id = this->left_sibling;
@@ -955,7 +961,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
         R -> left_sibling = L -> id;
         R -> right_sibling = this -> right_sibling;
 
-        multimap<KeyType, ValueType, KeyComparator> temp;
+        multimap<KeyType, ValueType, KeyComparator> temp(KeyComparator(this->my_tree.metadata));
         uint64_t half_count = total_count / 2;
         if (direction == LEFT)
         {
@@ -1021,8 +1027,9 @@ temp_iterator++;
         ret_val = parent_pointer->Internal_delete(merge_node->merge_key);
       if (!ret_val) return false;
 
-      // we treat it as a split, but without boundary key
-        ret_val = parent_pointer->Internal_insert(new_split_key, 0, R -> id);
+      // we treat it as a split; sp means special purpose
+      KeyType sp_boundary_key = R -> kv_list.end()->first;
+        ret_val = parent_pointer->Internal_insert(new_split_key, sp_boundary_key, R -> id);
       if (!ret_val) return false;
 
       return ret_val;
@@ -1279,7 +1286,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
   new_internal_node-> right_sibling = this -> right_sibling;
 
   uint64_t count = key_list.size();
-  typename multimap<KeyType, ValueType, KeyComparator>::iterator key_it = key_list.begin();
+  typename multimap<KeyType, uint64_t, KeyComparator>::iterator key_it = key_list.begin();
   advance(key_it, count / 2);
   KeyType split_key = key_it -> first;
   key_it = key_list.end();
@@ -1305,7 +1312,10 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
       // Just set requested_boundary_key = 0 but only rely on the assuption that
       // no Search function will ever use this boundary key since it's on the
       // other side
-      this -> Internal_insert(requested_key, 0, this -> id);
+      // UPDATE: it turns out that this could not happen since the req_split/boundary key
+      // won't be apart
+      // this -> Internal_insert(requested_key, 0, this -> id);
+      assert(false);
     }
 
   }
@@ -1361,7 +1371,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
     free(path);
     return ret_val;
   }
-  assert(false)
+  assert(false);
   return false;
 }
 
