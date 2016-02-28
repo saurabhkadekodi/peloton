@@ -51,6 +51,11 @@ typedef int node_type_t;
 #define SPLIT_INDEX 9
 #define REMOVE_INDEX 10
 
+// This represents the merge direction, the default is LEFT
+#define UP -1
+#define LEFT 0
+#define RIGHT 1
+
 class ItemPointerEqualityChecker {
  private:
   /* data */
@@ -176,8 +181,8 @@ class InternalBWNode
             bwt, id, INTERNAL_BW_NODE), key_list(KeyComparator(metadata)) {}
   bool Internal_insert(KeyType split_key, KeyType boundary_key,
                        uint64_t new_node_id);
-  bool Internal_split(uint64_t* path, uint64_t index, KeyType split_key,
-                      KeyType boundary_key, uint64_t new_node_id);
+  bool Internal_split(uint64_t* path, uint64_t index, KeyType requested_key,
+                      KeyType requested_boundary_key, uint64_t new_node_id);
   bool Internal_delete(KeyType merged_key);
   bool Internal_merge(uint64_t* path, uint64_t index, KeyType deleted_key);
   bool Consolidate() { return false; }
@@ -274,6 +279,8 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
 class RemoveDeltaNode
     : public Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
  public:
+  uint64_t merged_to_id;
+  int direction;
   // KeyType deleted_key; //The entire node is deleted and not a key, hence we
   // don't need this
   // Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>
@@ -283,7 +290,7 @@ class RemoveDeltaNode
       BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt,
       uint64_t id)
       : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id,
-                                                                    REMOVE) {}
+                                                                    REMOVE), direction(LEFT) {}
   bool Consolidate() { return false; }
 };
 
