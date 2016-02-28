@@ -189,13 +189,13 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
   else
   {
 
-    InternalBWNode<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> base = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
+    InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* base = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
 
     InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
       new_base =
           new InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
               this->metadata, *this, id);
-    typename multimap<KeyType, ValueType, KeyEqualityChecker>::iterator iter = base->key_list.begin();
+    typename multimap<KeyType, ValueType, KeyComparator>::iterator iter = base->key_list.begin();
     for(;iter!=base->key_list.end();iter++)
     {
       if(encounter_split_delta && !comparator(iter->first, split_key))
