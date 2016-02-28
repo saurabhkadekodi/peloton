@@ -169,6 +169,7 @@ class BWTree {
                            const vector<oid_t>& key_column_ids,
                            const vector<ExpressionType>& expr_types,
                            const ScanDirectionType& scan_direction);  // saurabh
+  vector<ItemPointer> ScanAllKeys();
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
