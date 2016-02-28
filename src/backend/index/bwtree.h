@@ -13,6 +13,7 @@
 #pragma once
 #include <cstdint>
 #include <assert.h>
+#include <deque>
 #include <vector>
 #include <map>
 #include <utility>

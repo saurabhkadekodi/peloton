@@ -107,12 +107,28 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
     uint64_t id, bool force) {
-  if (id == 0) {
-    if (force) {
-      id++;
-      force = false;
-    }
+  force = force; //TODO: we don't care about it for now
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ =
+      this->my_tree.table.Get(this->id);
+  deque<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> stack(KeyComparator(metadata));
+  // Collect delta chains
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temp = node_;
+
+  while(temp != nullptr) {
+      stack.push_back(temp);
+      temp = temp -> next;
   }
+  uint64_t new_node_id = this->my_tree.table.Get_next_id();
+
+  if (temp -> type == LEAF_BW_NODE)
+  {
+    LeafBWNode<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> base = dynamic_cast<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
+  LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+      new_base =
+          new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
+              this->my_tree.metadata, this->my_tree, new_node_id);
+  }
+
   return false;
 }
 
