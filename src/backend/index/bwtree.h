@@ -132,6 +132,7 @@ class BWTree {
   KeyEqualityChecker equals;
   ItemPointerEqualityChecker value_equals;
   bool allow_duplicates;
+  // Set<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> freelist;
   CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table;
   // BWTree() {CASMappingTable<KeyType, ValueType, KeyComparator,
   // KeyEqualityChecker> b;
