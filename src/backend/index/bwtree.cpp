@@ -189,13 +189,14 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
   else
   {
 
-    InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* base = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
+    InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* base =
+     dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
 
     InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
       new_base =
           new InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
               this->metadata, *this, id);
-    typename multimap<KeyType, ValueType, KeyComparator>::iterator iter = base->key_list.begin();
+    typename multimap<KeyType, uint64_t, KeyComparator>::iterator iter = base->key_list.begin();
     for(;iter!=base->key_list.end();iter++)
     {
       if(encounter_split_delta && !comparator(iter->first, split_key))
@@ -216,7 +217,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
         {
           SplitIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
               split_pointer =
-                  dynamic_cast<SplitIndexNode<KeyType, ValueType, KeyComparator,
+                  dynamic_cast<SplitIndexDeltaNode<KeyType, ValueType, KeyComparator,
                                          KeyEqualityChecker>*>(temp);
           new_base->key_list.insert(pair<KeyType, uint64_t>(split_pointer->split_key, split_pointer->new_split_node_id));
           break;
@@ -225,9 +226,9 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
         {
           RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
               remove_pointer =
-                  dynamic_cast<RemoveIndexNode<KeyType, ValueType, KeyComparator,
+                  dynamic_cast<RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator,
                                          KeyEqualityChecker>*>(temp);
-          new_base->key_list.insert(pair<KeyType, uint64_t>(remove_pointer->deleted_key);
+          new_base->key_list.erase(remove_pointer->deleted_key);
           break;
         }
         case(SPLIT):
@@ -237,9 +238,9 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
           MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
               merge_pointer =
                   dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator,
-                                              KeyEqualityChecker>*>(node_pointer);
+                                              KeyEqualityChecker>*>(temp);
 
-          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* merged_node_pointer = 
+          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* merged_node_pointer =
                   dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                               KeyEqualityChecker>*>(merge_pointer->node_to_be_merged);
           iter = merged_node_pointer->key_list.begin();
@@ -248,19 +249,19 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
             new_base->key_list.insert(*iter);
           }
           new_base->right_sibling = merged_node_pointer->right_sibling;
-          uint64_t right_sibiling_node_id = merged_node_pointer->right_sibling;
+          uint64_t right_sibling_node_id = merged_node_pointer->right_sibling;
 
           Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* right_sibling_temp =
-              this->my_tree.table.Get(right_sibling_node_id);
+              this->table.Get(right_sibling_node_id);
 
           while(right_sibling_temp->next != nullptr) {
               right_sibling_temp = right_sibling_temp -> next;
           }
-          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* right_sibling_pointer = 
+          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* right_sibling_pointer =
                   dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                               KeyEqualityChecker>*>(right_sibling_temp);
-          right_sibling_temp->left_sibling = id;
-          
+          right_sibling_pointer->left_sibling = id;
+
           this->freelist.insert(merge_pointer->node_to_be_merged);
 
         }
