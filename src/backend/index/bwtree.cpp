@@ -111,7 +111,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
   force = force; //TODO: we don't care about it for now
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ =
       this->table.Get(id);
-  deque<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> stack(KeyComparator(metadata));
+  deque<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> stack;
   // Collect delta chains
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temp = node_;
 
@@ -136,7 +136,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
       new_base =
           new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-              this->metadata, this, base -> id);
+              this->metadata, *this, base -> id);
     typename multimap<KeyType,ValueType, KeyComparator>::iterator base_it = base -> kv_list.begin();
     new_base -> left_sibling = base -> left_sibling;
     new_base -> right_sibling = base -> right_sibling;
@@ -151,7 +151,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
       }
     }
    while(!stack.empty()) {
-      temp = stack.pop_back();
+      temp = stack.back();
+      stack.pop_back();
       if (temp -> type == INSERT)
       {
         DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* insert_delta =
