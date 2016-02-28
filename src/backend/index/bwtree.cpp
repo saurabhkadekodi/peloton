@@ -193,21 +193,22 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
     InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
       new_base =
           new InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-              this->my_tree.metadata, this->my_tree, new_node_id);
-    typename multimap<KeyType, ValueType>::iterator iter = base->key_list.begin();
+              this->metadata, *this, id);
+    typename multimap<KeyType, ValueType, KeyEqualityChecker>::iterator iter = base->key_list.begin();
     for(;iter!=base->key_list.end();iter++)
     {
       if(encounter_split_delta && !comparator(iter->first, split_key))
         continue;
       new_base->key_list.insert(*iter);
     }
+    this->freelist.insert(base);
     stack.pop_front();
     new_base->leftmost_pointer = base->leftmost_pointer;
     new_base->left_sibling = base->left_sibling;
     new_base->right_sibling = base->right_sibling;
     while(!stack.empty())
     {
-      temp = stack.front();
+      temp = stack.back();
       switch(temp->type)
       {
         case(SPLIT_INDEX):
@@ -259,12 +260,18 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
                                               KeyEqualityChecker>*>(right_sibling_temp);
           right_sibling_temp->left_sibling = id;
           
-          freelist.insert(merge_pointer->node_to_be_merged);
+          this->freelist.insert(merge_pointer->node_to_be_merged);
 
         }
       }
-      stack.pop_front();
+      this->freelist.insert(temp);
+      stack.pop_back();
     }
+     ret_val = this -> table.Install(id, new_base);
+     if (!ret_val)
+     {
+       return ret_val;
+     }
   }
 
 
