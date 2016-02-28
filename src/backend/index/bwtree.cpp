@@ -114,19 +114,75 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
   // Collect delta chains
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temp = node_;
 
-  while(temp != nullptr) {
+  bool encounter_split_delta = false;
+  KeyType split_key;
+  while(temp -> next != nullptr) {
       stack.push_back(temp);
       temp = temp -> next;
+      if (temp -> type == SPLIT)
+      {
+        SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* split_delta =
+         dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
+        split_key = split_delta -> split_key;
+        encounter_split_delta = true;
+      }
   }
-  uint64_t new_node_id = this->my_tree.table.Get_next_id();
 
   if (temp -> type == LEAF_BW_NODE)
   {
-    LeafBWNode<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> base = dynamic_cast<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
+    LeafBWNode<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> base =
+    dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
       new_base =
           new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-              this->my_tree.metadata, this->my_tree, new_node_id);
+              this->metadata, this, base -> id);
+    typename multimap<KeyType,ValueType, KeyComparator>::iterator base_it = base -> kv_list.begin();
+    new_base -> left_sibling = base -> left_sibling;
+    new_base -> right_sibling = base -> right_sibling;
+    for (; base_it != base -> kv_list.end(); base_it++) {
+      if (encounter_split_delta && !comparator(base_it -> first, split_key))
+      {
+        continue;
+      } else {
+        KeyType key;
+        ValueType value;
+        new_base -> kv_list.insert(pair<KeyType, ValueType>(key, value));
+      }
+    }
+   while(!stack.empty()) {
+      temp = stack.pop_back();
+      if (temp -> type == INSERT)
+      {
+        DeltaNode<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> insert_delta =
+        dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
+        new_base->kv_list.insert(pair<KeyType, ValueType>(insert_delta -> key, insert_delta -> value));
+      } else {
+        DeltaNode<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> delete_delta =
+        dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
+        pair<typename multimap<KeyType, ValueType>::iterator,
+               typename multimap<KeyType, ValueType>::iterator> values =
+              new_base -> kv_list.equal_range(delete_delta -> key);
+        typename multimap<KeyType, ValueType, KeyEqualityChecker>::iterator it = values.first;
+        for (;it!=values.second;it++) {
+          if (value_equals(it -> second, delete_delta -> value))
+          {
+            new_base->kv_list.erase(it);
+            break;
+          }
+        }
+      } else if (temp -> type = SPLIT)
+      {
+        LOG_DEBUG("Bypass the split delta");
+      } else {
+        assert(false);
+      }
+   }
+   ret_val = this -> table.Install(base -> id, new_base);
+   freelist.insert(base);
+   if (!ret_val)
+   {
+     return ret_val;
+   }
   }
 
   return false;
