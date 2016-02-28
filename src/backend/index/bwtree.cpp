@@ -107,9 +107,10 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
     uint64_t id, bool force) {
+  bool ret_val = true;
   force = force; //TODO: we don't care about it for now
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ =
-      this->my_tree.table.Get(this->id);
+      this->table.Get(id);
   deque<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> stack(KeyComparator(metadata));
   // Collect delta chains
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temp = node_;
@@ -130,7 +131,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
 
   if (temp -> type == LEAF_BW_NODE)
   {
-    LeafBWNode<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> base =
+    LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* base =
     dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
       new_base =
@@ -153,11 +154,11 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
       temp = stack.pop_back();
       if (temp -> type == INSERT)
       {
-        DeltaNode<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> insert_delta =
+        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* insert_delta =
         dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
         new_base->kv_list.insert(pair<KeyType, ValueType>(insert_delta -> key, insert_delta -> value));
-      } else {
-        DeltaNode<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> delete_delta =
+      } else if (temp -> type == DELETE) {
+        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* delete_delta =
         dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(temp);
         pair<typename multimap<KeyType, ValueType>::iterator,
                typename multimap<KeyType, ValueType>::iterator> values =
@@ -170,7 +171,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
             break;
           }
         }
-      } else if (temp -> type = SPLIT)
+      } else if (temp -> type == SPLIT)
       {
         LOG_DEBUG("Bypass the split delta");
       } else {
@@ -178,7 +179,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
       }
    }
    ret_val = this -> table.Install(base -> id, new_base);
-   freelist.insert(base);
+   this -> freelist.insert(base);
    if (!ret_val)
    {
      return ret_val;
