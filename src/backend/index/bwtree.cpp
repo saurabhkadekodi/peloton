@@ -819,11 +819,6 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
                 KeyEqualityChecker>::Leaf_merge(uint64_t* path, uint64_t index,
                                                 KeyType key,
                                                 ValueType value) {
-  bool ret_val = this->my_tree.Consolidate(this->id, true);
-  if (!ret_val) {
-    return ret_val;
-  }
-
   pair<typename multimap<KeyType, ValueType>::iterator,
        typename multimap<KeyType, ValueType>::iterator> values =
       kv_list.equal_range(key);
@@ -835,7 +830,10 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
      break;
    }
   }
-
+  bool ret_val = this->my_tree.Consolidate(this->id, true);
+  if (!ret_val) {
+    return ret_val;
+  }
   // We are the root node
   if (index == 0) return true;
 
@@ -1241,6 +1239,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
       key_list.begin();
   advance(split_iterator, count / 2);
 
+  // TODO: what about the left_most key in new_internal_node??
   for (; split_iterator != key_list.end(); split_iterator++) {
     pair<KeyType, uint64_t> new_entry = *split_iterator;
     new_internal_node->key_list.insert(new_entry);
@@ -1320,7 +1319,6 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 uint64_t InternalBWNode<KeyType, ValueType, KeyComparator,
                         KeyEqualityChecker>::Get_child_id(KeyType key) {
-  // TODO: We need to find the correct child id
   typename multimap<KeyType, uint64_t, KeyComparator>::reverse_iterator iter =
       key_list.rbegin();
   for (; iter != key_list.rend(); iter++) {
@@ -1329,6 +1327,7 @@ uint64_t InternalBWNode<KeyType, ValueType, KeyComparator,
     }
   }
   if (iter == key_list.rend()) return leftmost_pointer;
+  assert(false);
   return 0;
 }
 
@@ -1348,7 +1347,6 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
   remove_index->chain_len = chain_len + 1;
   return this->my_tree.table.Install(this->id, remove_index);
 }
-// Explicit template instantiations
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
