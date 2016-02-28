@@ -19,6 +19,8 @@
 #include <set>
 #include "backend/index/index_key.h"
 #include "../common/types.h"
+#include "backend/storage/tuple.h"
+#include "backend/index/index.h"
 
 namespace peloton {
 namespace index {
@@ -159,6 +161,10 @@ class BWTree {
   vector<ValueType> Search_all_keys();
   vector<ValueType> Search_range(KeyType low, KeyType high);
   uint64_t Get_size(uint64_t id);
+  vector<ItemPointer> Scan(const vector<Value> &values,
+                           const vector<oid_t> &key_column_ids,
+                           const vector<ExpressionType> &expr_types,
+                           const ScanDirectionType &scan_direction);  // saurabh
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator,

@@ -14,6 +14,7 @@
 #include "backend/common/types.h"
 #include "backend/index/index_key.h"
 #include "backend/storage/tuple.h"
+#include "backend/index/index.h"
 
 #include "assert.h"
 namespace peloton {
@@ -1186,6 +1187,179 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
   }
   return count;
 }
+
+
+
+template <typename KeyType, typename ValueType, class KeyComparator,
+          class KeyEqualityChecker>
+vector<ItemPointer>
+BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
+     __attribute__((unused)) const vector<Value> &values,
+     __attribute__((unused)) const vector<oid_t> &key_column_ids,
+     __attribute__((unused)) const vector<ExpressionType> &expr_types,
+     __attribute__((unused)) const ScanDirectionType &scan_direction) {
+
+  vector<ItemPointer> result;
+  KeyType index_key;
+  /*
+  oid_t leading_column_id = 0;
+  auto key_column_ids_itr = std::find(
+    key_column_ids.begin(), key_column_ids.end(), leading_column_id);
+
+  // SPECIAL CASE : leading column id is one of the key column ids
+  // and is involved in a equality constraint
+  bool special_case = false;
+  if (key_column_ids_itr != key_column_ids.end()) {
+      auto offset = std::distance(key_column_ids.begin(), key_column_ids_itr);
+      if (expr_types[offset] == EXPRESSION_TYPE_COMPARE_EQUAL) {
+        special_case = true;
+    }
+  }
+  */
+  std::unique_ptr<storage::Tuple> start_key;
+
+  // If it is a special case, we can figure out the range to scan in the index
+  //if (special_case == true) {
+
+    start_key.reset(new storage::Tuple(metadata->GetKeySchema(), true));
+    index_key.SetFromKey(start_key.get());
+
+    // Construct the lower bound key tuple
+
+    // Set scan begin iterator
+    //scan_begin_itr = container.equal_range(index_key).first;
+  //}
+  //
+  
+  uint64_t *path = (uint64_t *)malloc(tree_height *sizeof(uint64_t));
+  uint64_t location;
+  uint64_t leaf_id = Search(index_key, path, location);
+
+  bool reached_end = false;
+  while(!reached_end)
+  {
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
+      this->table.Get(leaf_id);
+    while(node_pointer->next)
+      node_pointer = node_pointer->next;
+    LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+        leaf_pointer = nullptr;
+    leaf_pointer = dynamic_cast<
+        LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+        node_pointer);
+    switch(scan_direction)
+    {
+      case SCAN_DIRECTION_TYPE_FORWARD:
+        if(leaf_pointer->left_sibling != 0)
+          leaf_id = leaf_pointer->left_sibling;
+        else
+          reached_end = true;
+        break;
+      case SCAN_DIRECTION_TYPE_BACKWARD:
+        if(leaf_pointer->right_sibling != 0)
+          leaf_id = leaf_pointer->right_sibling;
+        else
+          reached_end = true;
+        break;
+      case SCAN_DIRECTION_TYPE_INVALID:
+      default:
+        throw Exception("Invalid scan direction \n");
+        break;
+    }
+  }
+
+  bool move_forward = true;
+
+  switch(scan_direction)
+  {
+    case SCAN_DIRECTION_TYPE_FORWARD:
+      move_forward = true;
+      break;
+    case SCAN_DIRECTION_TYPE_BACKWARD:
+      move_forward = false;
+      break;
+    case SCAN_DIRECTION_TYPE_INVALID:
+    default:
+      throw Exception("Invalid scan direction \n");
+      break;
+  }
+  reached_end = false;
+  while(!reached_end)
+  {
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
+      this->table.Get(leaf_id);
+    while(node_pointer)
+    {
+      switch(node_pointer->type)
+      {   
+        case(INSERT):
+        {
+          DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            simple_pointer = dynamic_cast<
+            DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+            node_pointer);
+            auto inserted_key = simple_pointer->key;
+            auto tuple = inserted_key.GetTupleForComparison(metadata->GetKeySchema());
+            if (Index::Compare(tuple, key_column_ids, expr_types, values) == true) {
+              ItemPointer location = simple_pointer->value;
+              result.push_back(location);
+            }
+          break;
+        }
+        case(DELETE):
+          break;
+        case(SPLIT):
+          break;
+        case(MERGE):
+          break;
+        case(REMOVE):
+          break;
+        case(LEAF_BW_NODE):
+        {
+          LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            leaf_pointer = nullptr;
+          leaf_pointer = dynamic_cast<
+              LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+              node_pointer);
+          typename multimap<KeyType, ValueType>::iterator iter = leaf_pointer->kv_list.begin();
+          for(;iter!=leaf_pointer->kv_list.end();iter++)
+          {   
+            auto leaf_key = iter->first;
+            auto tuple = leaf_key.GetTupleForComparison(metadata->GetKeySchema());
+            if (Index::Compare(tuple, key_column_ids, expr_types, values) == true) {
+              ItemPointer location = iter->second;
+              result.push_back(location);
+            }
+          }
+          break;
+        }
+      } 
+      node_pointer = node_pointer->next;
+    }
+    LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+        leaf_pointer = nullptr;
+    leaf_pointer = dynamic_cast<
+        LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+        node_pointer);
+    if(move_forward)
+    {
+      if(leaf_pointer->right_sibling)
+        leaf_id = leaf_pointer->right_sibling;
+      else
+        reached_end = true;
+    }
+    else
+    {
+      if(leaf_pointer->left_sibling)
+        leaf_id = leaf_pointer->left_sibling;
+      else
+        reached_end = true;
+    }
+  }
+
+  return result;
+}
+
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
