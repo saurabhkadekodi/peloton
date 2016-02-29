@@ -25,7 +25,7 @@ BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTreeIndex(
     IndexMetadata *metadata)
     : Index(metadata),
       container(metadata, KeyComparator(metadata), KeyEqualityChecker(metadata),
-                value_equals, false),
+                value_equals, true),
       equals(metadata),
       comparator(metadata) {
   // Add your implementation here
@@ -57,7 +57,10 @@ bool BWTreeIndex<KeyType, ValueType, KeyComparator,
                                                   const ItemPointer location) {
   KeyType index_key;
   index_key.SetFromKey(key);
-  return container.Delete(index_key, location);
+  
+  bool ret_val = container.Delete(index_key, location);
+  printf("index ret val is %d\n", ret_val);
+  return ret_val;
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,

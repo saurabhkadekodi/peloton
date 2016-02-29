@@ -191,7 +191,12 @@ class InternalBWNode
       uint64_t id)
       : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
             bwt, id, INTERNAL_BW_NODE),
-        key_list(KeyComparator(metadata)) {}
+        key_list(KeyComparator(metadata)),
+        sibling_id(0),
+        left_sibling(0),
+        right_sibling(0),
+        low(0),
+        high(0)  {}
   bool Internal_insert(KeyType split_key, KeyType boundary_key,
                        uint64_t new_node_id);
   bool Internal_split(uint64_t* path, uint64_t index, KeyType requested_key,
@@ -220,6 +225,8 @@ class LeafBWNode
             bwt, id, LEAF_BW_NODE),
         kv_list(KeyComparator(metadata)),
         sibling_id(0),
+        left_sibling(0),
+        right_sibling(0),
         low(0),
         high(0) {}
   bool Leaf_insert(KeyType key, ValueType value);
