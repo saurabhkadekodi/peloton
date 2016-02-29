@@ -50,6 +50,9 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     Install(
         uint64_t id,
         Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr) {
+
+  printf("Install with id %ld of type %d\n", id, node_ptr->type);
+
   if (node_ptr->chain_len == 0) {
     cas_mapping_table.insert(
         pair<uint64_t,
@@ -59,14 +62,13 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   }
 
   while (true) {
+                       printf("Node type is %d at address %p\n", node_ptr->type, node_ptr);
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* old_node =
         node_ptr->next;
     typename map<uint64_t, Node<KeyType, ValueType, KeyComparator,
                                 KeyEqualityChecker>*>::iterator iter =
         cas_mapping_table.find(id);
-    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* address =
-        iter->second;
-    if (__sync_bool_compare_and_swap(&address, old_node, node_ptr)) {
+    if (__sync_bool_compare_and_swap(&(iter->second), old_node, node_ptr)) {
       break;
     }
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_node =
@@ -74,6 +76,9 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     node_ptr->next = cur_node;
     node_ptr->chain_len = cur_node->chain_len + 1;
   }
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_node =
+        cas_mapping_table[id];
+                       printf("Node type inserted is %d at %p\n", cur_node->type, cur_node);
   return true;
 }
 
@@ -85,6 +90,7 @@ Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* CASMappingTable<
                               KeyEqualityChecker>*>::iterator it =
       cas_mapping_table.find(id);
   assert(it != cas_mapping_table.end());
+  printf("Get returning node of type %d for id %ld\n", it->second->type, id);
   return it->second;
 }
 
@@ -313,11 +319,15 @@ vector<ValueType> BWTree<KeyType, ValueType, KeyComparator,
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
       table.Get(node_id);
 
+  printf("Search Key function %ld\n", node_id);
+
   multimap<KeyType, ValueType, KeyComparator> deleted_keys(
       KeyComparator(this->metadata));
   while (node_pointer) {
+    printf("Node type %d\n", node_pointer->type);
     switch (node_pointer->type) {
       case (INSERT): {
+                       printf("CASE INSERT\n");
         DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
             simple_pointer =
                 dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator,
@@ -340,6 +350,7 @@ vector<ValueType> BWTree<KeyType, ValueType, KeyComparator,
         }
       } break;
       case (DELETE): {
+                       printf("CASE DELETE\n");
         DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
             simple_pointer = nullptr;
         simple_pointer = dynamic_cast<
@@ -371,6 +382,7 @@ vector<ValueType> BWTree<KeyType, ValueType, KeyComparator,
         }
       } break;
       case (LEAF_BW_NODE): {
+                       printf("CASE LEAF\n");
         LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
             leaf_pointer = nullptr;
         leaf_pointer = dynamic_cast<
@@ -420,6 +432,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   uint64_t location;
   uint64_t node_id = Search(key, path, location);
 
+  printf("Insert at %ld\n", node_id);
+
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
       table.Get(node_id);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_pointer =
@@ -459,11 +473,13 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   uint64_t cur_node_size = Get_size(node_id);
   if (cur_node_size < max_node_size) {
     free(path);
+                       printf("Leaf Insert\n");
     auto retval = leaf_pointer->Leaf_insert(key, value);
     auto root_node = table.Get(root);
     Traverse(root_node);
     return retval;
   } else {
+    printf("Leaf Split\n");
     auto retval = leaf_pointer->Leaf_split(path, location, key, value);
     auto root_node = table.Get(root);
     Traverse(root_node);
@@ -713,6 +729,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
   uint32_t chain_len = node_->chain_len;
   delta->chain_len = chain_len + 1;
   bool result = this->my_tree.table.Install(this->id, delta);
+  printf("Inserted delta in leaf %d\n", delta->type);
   return result;
 }
 
