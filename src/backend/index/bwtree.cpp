@@ -908,17 +908,29 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
   // TODO: Consolidate() is called
   if (total_count > this->my_tree.max_node_size) {
     // Redistribute keys
-    uint64_t new_node_id = this->my_tree.table.Get_next_id();
-    // TODO: should we pick a new id, no, maybe keep the old ones
+    uint64_t lid, rid;
+    if(direction == LEFT)
+    {
+      lid = neighbour_node_id;
+      rid = this->id;
+    }
+    else if (direction == RIGHT)
+    {
+      lid = this->id;
+      rid = neighbour_node_id;
+    }
+    else if (direction == UP)
+    {
+      assert(false);
+    }
     InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* L =
         new InternalBWNode<KeyType, ValueType, KeyComparator,
                            KeyEqualityChecker>(this->my_tree.metadata,
-                                               this->my_tree, new_node_id);
-    new_node_id = this->my_tree.table.Get_next_id();
+                                               this->my_tree, lid);
     InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* R =
         new InternalBWNode<KeyType, ValueType, KeyComparator,
                            KeyEqualityChecker>(this->my_tree.metadata,
-                                               this->my_tree, new_node_id);
+                                               this->my_tree, rid);
 
     L->left_sibling = n_node_pointer->left_sibling;
     L->right_sibling = R->id;
@@ -1109,15 +1121,27 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
   // TODO: Consolidate() is called
   if (total_count > this->my_tree.max_node_size) {
     // Redistribute keys
-    uint64_t new_node_id = this->my_tree.table.Get_next_id();
-    // TODO: should we pick a new id, no, maybe keep the old ones
+    uint64_t lid, rid;
+    if(direction == LEFT)
+    {
+      lid = neighbour_node_id;
+      rid = this->id;
+    }
+    else if (direction == RIGHT)
+    {
+      lid = this->id;
+      rid = neighbour_node_id;
+    }
+    else if (direction == UP)
+    {
+      assert(false);
+    }
     LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* L =
         new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-            this->my_tree.metadata, this->my_tree, new_node_id);
-    new_node_id = this->my_tree.table.Get_next_id();
+            this->my_tree.metadata, this->my_tree, lid);
     LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* R =
         new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-            this->my_tree.metadata, this->my_tree, new_node_id);
+            this->my_tree.metadata, this->my_tree, rid);
 
     L->left_sibling = n_node_pointer->left_sibling;
     L->right_sibling = R->id;
