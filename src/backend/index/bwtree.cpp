@@ -19,7 +19,64 @@
 #include "assert.h"
 namespace peloton {
 namespace index {
-using namespace std;  // SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
+using namespace std; //SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
+
+template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Epoch(BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id, uint64_t oldest)
+    : generation(id),
+      oldest_epoch(oldest),
+      my_tree(bwt) {
+    ref_count.store(0);
+}
+
+template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+void Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::join() {
+  /*
+   * We call join from every operation that needs to be performed on the tree.
+   */
+  printf("** joining epoch **\n");
+  ref_count.fetch_add(1);
+}
+
+template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+void Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::performGc() {
+  /*
+   * We have to iterate through the to_be_cleaned list one-by-one and delete
+   * the nodes. The destructors of those nodes will take care of cleaning up
+   * the necessary internal malloc'd objects.
+   */
+  printf("** garbage collecting epoch **\n");
+  to_be_cleaned.clear();
+}
+
+template <typename KeyType, typename ValueType, class KeyComparator, class KeyEqualityChecker>
+bool Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::leave() {
+  ref_count.fetch_sub(1);
+  printf("** leaving epoch **\n");
+  if(to_be_cleaned.size() >= my_tree.max_epoch_size) {
+    printf("** creating new Epoch **\n");
+    auto new_e = new Epoch(this->my_tree, this->generation + 1, this->my_tree.oldest_epoch);
+    __sync_bool_compare_and_swap(&(my_tree.current_epoch), this, new_e);
+  }
+  if(__sync_bool_compare_and_swap(&(my_tree.current_epoch), this, this) == false) {
+    /*
+     * this means epoch changed before this thread reached leave.
+     */
+    if(ref_count == 0) {
+      if(__sync_bool_compare_and_swap(&(my_tree.oldest_epoch), oldest_epoch, this->generation + 1)) {
+        /*
+         * perform cleaning of this epoch, because we don't need it anymore.
+         *
+         * Here it is guaranteed that only one thread will come here, since it
+         * is guarded by compare-and-swap on oldest epoch.
+         */
+        performGc();
+        return true; // this is for the upper layer to delete the epoch object
+      }
+    }
+  }
+  return false;
+}
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
@@ -42,6 +99,9 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTree(
   table.Install(root, root_node);
   LOG_DEBUG("Successfully created a tree of min_node_size %d, max_node_size %d",
             min_node_size, max_node_size);
+  oldest_epoch = 1;
+  current_epoch = new Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(*this, oldest_epoch, oldest_epoch);
+  max_epoch_size = 1; //FIXME: change this to be less aggressive (say 64?)
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
@@ -307,6 +367,19 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_root(
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 vector<ValueType> BWTree<KeyType, ValueType, KeyComparator,
+  KeyEqualityChecker>::Search_keyWrapper(KeyType key) {
+    auto e = current_epoch;
+    e->join();
+    vector<ItemPointer> result = Search_key(key);
+    if(e->leave()) {
+      delete e;
+    }
+    return result;
+}
+
+template <typename KeyType, typename ValueType, typename KeyComparator,
+          typename KeyEqualityChecker>
+vector<ValueType> BWTree<KeyType, ValueType, KeyComparator,
                          KeyEqualityChecker>::Search_key(KeyType key) {
   vector<ValueType> ret_vector;
   uint64_t* path = (uint64_t*)malloc(tree_height * sizeof(uint64_t));
@@ -417,6 +490,19 @@ vector<ValueType> BWTree<KeyType, ValueType, KeyComparator,
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
+bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertWrapper(
+    KeyType key, ValueType location) {
+  auto e = current_epoch;
+  e->join();
+  auto retval = Insert(key, location);
+  if(e->leave()) {
+    delete e;
+  }
+  return retval;
+}
+
+template <typename KeyType, typename ValueType, typename KeyComparator,
+          typename KeyEqualityChecker>
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
     KeyType key, ValueType value) {
   uint64_t* path = (uint64_t*)malloc(sizeof(uint64_t) * tree_height);
@@ -478,6 +564,20 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   }
   assert(false);
   return false;
+}
+
+template <typename KeyType, typename ValueType, typename KeyComparator,
+          typename KeyEqualityChecker>
+bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::DeleteWrapper(
+    KeyType key, ValueType location) {
+  auto e = current_epoch;
+  e->join();
+  bool ret_val = Delete(key, location);
+  printf("index ret val is %d\n", ret_val);
+  if(e->leave()) {
+    delete e;
+  }
+  return ret_val;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
@@ -1450,6 +1550,22 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
 vector<ItemPointer>
+BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanWrapper(
+    const vector<Value>& values, const vector<oid_t>& key_column_ids,
+    const vector<ExpressionType>& expr_types,
+    const ScanDirectionType& scan_direction) {
+  auto e = current_epoch;
+  e->join();
+  auto result = Scan(values, key_column_ids, expr_types, scan_direction);
+  if(e->leave()) {
+    delete e;
+  }
+  return result;
+}
+
+template <typename KeyType, typename ValueType, class KeyComparator,
+          class KeyEqualityChecker>
+vector<ItemPointer>
 BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
     const vector<Value>& values, const vector<oid_t>& key_column_ids,
     const vector<ExpressionType>& expr_types,
@@ -1601,6 +1717,19 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
     }
   }
 
+  return result;
+}
+
+template <typename KeyType, typename ValueType, class KeyComparator,
+          class KeyEqualityChecker>
+vector<ItemPointer>
+BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeysWrapper() {
+  auto e = current_epoch;
+  e->join();
+  auto result = ScanAllKeys();
+  if(e->leave()) {
+    delete e;
+  }
   return result;
 }
 

@@ -19,6 +19,7 @@ namespace peloton {
 namespace index {
 using namespace std;
 
+
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
 BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTreeIndex(
@@ -47,7 +48,18 @@ bool BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         const storage::Tuple *key, const ItemPointer location) {
   KeyType index_key;
   index_key.SetFromKey(key);
-  return container.Insert(index_key, location);
+  return container.InsertWrapper(index_key, location);
+#if 0
+  auto e = container.current_epoch;
+  e->join();
+  KeyType index_key;
+  index_key.SetFromKey(key);
+  auto retval = container.Insert(index_key, location);
+  if(e->leave()) {
+    delete e;
+  }
+  return retval;
+#endif
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
@@ -57,10 +69,19 @@ bool BWTreeIndex<KeyType, ValueType, KeyComparator,
                                                   const ItemPointer location) {
   KeyType index_key;
   index_key.SetFromKey(key);
-  
+  return container.DeleteWrapper(index_key, location);
+#if 0
+  auto e = container.current_epoch;
+  e->join();
+  KeyType index_key;
+  index_key.SetFromKey(key);
   bool ret_val = container.Delete(index_key, location);
   printf("index ret val is %d\n", ret_val);
+  if(e->leave()) {
+    delete e;
+  }
   return ret_val;
+#endif
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
@@ -70,14 +91,14 @@ BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
     const vector<Value> &values, const vector<oid_t> &key_column_ids,
     const vector<ExpressionType> &expr_types,
     const ScanDirectionType &scan_direction) {
-  return container.Scan(values, key_column_ids, expr_types, scan_direction);
+  return container.ScanWrapper(values, key_column_ids, expr_types, scan_direction);
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
 vector<ItemPointer> BWTreeIndex<KeyType, ValueType, KeyComparator,
                                 KeyEqualityChecker>::ScanAllKeys() {
-  return container.ScanAllKeys();
+  return container.ScanAllKeysWrapper();
 }
 
 /**
@@ -90,8 +111,18 @@ BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanKey(
     const storage::Tuple *key) {
   KeyType index_key;
   index_key.SetFromKey(key);
+  return container.Search_keyWrapper(index_key);
+#if 0
+  auto e = container.current_epoch;
+  e->join();
+  KeyType index_key;
+  index_key.SetFromKey(key);
   vector<ItemPointer> result = container.Search_key(index_key);
+  if(e->leave()) {
+    delete e;
+  }
   return result;
+#endif
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
