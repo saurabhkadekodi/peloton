@@ -274,6 +274,7 @@ TEST(IndexTests, DeleteTest) {
  * 13. Multithreaded insert test - already given (MultiThreadedInsertTest)
  */
 
+/*
 TEST(IndexTests, SimpleInsertSingleThreaded) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
   std::vector<ItemPointer> locations;
@@ -448,6 +449,7 @@ TEST(IndexTests, ScanTreeSingleThreaded) {
 
   delete tuple_schema;
 }
+*/
 
 TEST(IndexTests, DeleteTreeSingleThreaded) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
@@ -475,18 +477,25 @@ TEST(IndexTests, DeleteTreeSingleThreaded) {
   assert(index->InsertEntry(key3.get(), item0) == true);
   assert(index->InsertEntry(key4.get(), item0) == true);
 
+  printf("All the inserts were successful. Now deleting\n");
   // DELETE
   assert(index->DeleteEntry(key0.get(), item0) == true);
+  printf("Deleted 1\n");
   assert(index->DeleteEntry(key1.get(), item0) == true);
+  printf("Deleted 2\n");
   assert(index->DeleteEntry(key2.get(), item0) == true);
+  printf("Deleted 3\n");
   assert(index->DeleteEntry(key3.get(), item0) == true);
+  printf("Deleted 4\n");
   assert(index->DeleteEntry(key4.get(), item0) == true);
+  printf("Deleted 5\n");
 
   locations = index->ScanKey(key0.get());
   EXPECT_EQ(locations.size(), 0);
   delete tuple_schema;
 }
 
+/*
 TEST(IndexTests, MultiThreadedInsertTest) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
   std::vector<ItemPointer> locations;
@@ -520,6 +529,7 @@ TEST(IndexTests, MultiThreadedInsertTest) {
 
   delete tuple_schema;
 }
+*/
 
 }  // End test namespace
 }  // End peloton namespace

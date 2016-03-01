@@ -47,7 +47,9 @@ bool BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         const storage::Tuple *key, const ItemPointer location) {
   KeyType index_key;
   index_key.SetFromKey(key);
-  return container.Insert(index_key, location);
+  bool ret_val = container.Insert(index_key, location);
+  printf("container insert returned %d\n", ret_val);
+  return ret_val;
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
