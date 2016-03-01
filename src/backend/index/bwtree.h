@@ -19,6 +19,9 @@
 #include <utility>
 #include <set>
 #include "backend/index/index_key.h"
+#include <list>
+#include <atomic>
+
 #include "../common/types.h"
 #include "backend/storage/tuple.h"
 #include "backend/index/index.h"
@@ -72,6 +75,10 @@ class ItemPointerEqualityChecker {
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 class BWTree;
+
+template <typename KeyType, typename ValueType, typename KeyComparator,
+          typename KeyEqualityChecker>
+class Epoch;
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
@@ -158,18 +165,29 @@ class BWTree {
   // creating when consolidating
   // bool DeleteNode(uint64_t id){return false;}
   // tianyuan - GC and the epoch mechanism
+  bool InsertWrapper(KeyType key, ValueType value);
   bool Insert(KeyType key, ValueType value);
+  bool DeleteWrapper(KeyType key, ValueType value);
   bool Delete(KeyType key, ValueType value);
   uint64_t Search(KeyType key, uint64_t* path, uint64_t& location);
   vector<ValueType> Search_key(KeyType key);
+  vector<ValueType> Search_keyWrapper(KeyType key);
   vector<ValueType> Search_all_keys();
   vector<ValueType> Search_range(KeyType low, KeyType high);
   uint64_t Get_size(uint64_t id);
+  vector<ItemPointer> ScanWrapper(const vector<Value>& values,
+                           const vector<oid_t>& key_column_ids,
+                           const vector<ExpressionType>& expr_types,
+                           const ScanDirectionType& scan_direction);  // saurabh
   vector<ItemPointer> Scan(const vector<Value>& values,
                            const vector<oid_t>& key_column_ids,
                            const vector<ExpressionType>& expr_types,
                            const ScanDirectionType& scan_direction);  // saurabh
+  vector<ItemPointer> ScanAllKeysWrapper();
   vector<ItemPointer> ScanAllKeys();
+  Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *current_epoch;
+  uint64_t oldest_epoch;
+  uint32_t max_epoch_size;
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
@@ -331,5 +349,21 @@ class MergeDeltaNode
       node_to_be_merged;
   bool Consolidate() { return false; }
 };
+
+template <typename KeyType, typename ValueType, typename KeyComparator,
+          typename KeyEqualityChecker>
+class Epoch {
+  public:
+    Epoch(BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt, uint64_t id, uint64_t oldest);
+    uint64_t generation;
+    uint64_t oldest_epoch;
+    std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *> to_be_cleaned; //FIXME: worry about concurrency in this data structure
+    BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker> &my_tree;
+    std::atomic<uint64_t> ref_count; // number of threads in epoch
+    void join();
+    bool leave();
+    void performGc();
+};
+
 }  // End index namespace
 }  // End peloton namespace
