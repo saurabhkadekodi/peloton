@@ -82,6 +82,10 @@ class Epoch;
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
+class ThreadWrapper;
+
+template <typename KeyType, typename ValueType, typename KeyComparator,
+          typename KeyEqualityChecker>
 class Node {
  public:
   epoch_t generation;
@@ -158,7 +162,7 @@ class BWTree {
   uint64_t tree_height;
   uint64_t root;  // root points to an id in the mapping table
   bool Consolidate(uint64_t id,
-                   bool force);  // id is that of the mapping table entry
+                   bool force, ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);  // id is that of the mapping table entry
   bool Split_root(KeyType split_key, uint64_t left_pointer,
                   uint64_t right_pointer);
   // NodeType * CreateNode(uint64_t id, node_type_t t){return nullptr;} // for
@@ -166,13 +170,13 @@ class BWTree {
   // bool DeleteNode(uint64_t id){return false;}
   // tianyuan - GC and the epoch mechanism
   bool InsertWrapper(KeyType key, ValueType value);
-  bool Insert(KeyType key, ValueType value);
+  bool Insert(KeyType key, ValueType value, ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);
   bool DeleteWrapper(KeyType key, ValueType value);
-  bool Delete(KeyType key, ValueType value);
-  uint64_t Search(KeyType key, uint64_t* path, uint64_t& location);
-  vector<ValueType> Search_key(KeyType key);
+  bool Delete(KeyType key, ValueType value, ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);
+  uint64_t Search(KeyType key, uint64_t* path, uint64_t& location, ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);
+  vector<ValueType> Search_key(KeyType key, ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);
   vector<ValueType> Search_keyWrapper(KeyType key);
-  vector<ValueType> Search_all_keys();
+  vector<ValueType> Search_all_keys(ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);
   vector<ValueType> Search_range(KeyType low, KeyType high);
   uint64_t Get_size(uint64_t id);
   vector<ItemPointer> ScanWrapper(const vector<Value>& values,
@@ -182,9 +186,10 @@ class BWTree {
   vector<ItemPointer> Scan(const vector<Value>& values,
                            const vector<oid_t>& key_column_ids,
                            const vector<ExpressionType>& expr_types,
-                           const ScanDirectionType& scan_direction);  // saurabh
+                           const ScanDirectionType& scan_direction,
+                           ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);  // saurabh
   vector<ItemPointer> ScanAllKeysWrapper();
-  vector<ItemPointer> ScanAllKeys();
+  vector<ItemPointer> ScanAllKeys(ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);
   Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *current_epoch;
   uint64_t oldest_epoch;
   uint32_t max_epoch_size;
@@ -216,11 +221,11 @@ class InternalBWNode
         low(0),
         high(0)  {}
   bool Internal_insert(KeyType split_key, KeyType boundary_key,
-                       uint64_t new_node_id);
+                       uint64_t new_node_id, ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);
   bool Internal_split(uint64_t* path, uint64_t index, KeyType requested_key,
-                      KeyType requested_boundary_key, uint64_t new_node_id);
+                      KeyType requested_boundary_key, uint64_t new_node_id, ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);
   bool Internal_delete(KeyType merged_key);
-  bool Internal_merge(uint64_t* path, uint64_t index, KeyType deleted_key);
+  bool Internal_merge(uint64_t* path, uint64_t index, KeyType deleted_key, ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);
   bool Consolidate() { return false; }
   uint64_t Get_child_id(KeyType key);
 };
@@ -249,8 +254,8 @@ class LeafBWNode
         high(0) {}
   bool Leaf_insert(KeyType key, ValueType value);
   bool Leaf_delete(KeyType key, ValueType value);
-  bool Leaf_split(uint64_t* path, uint64_t index, KeyType key, ValueType value);
-  bool Leaf_merge(uint64_t* path, uint64_t index, KeyType key, ValueType value);
+  bool Leaf_split(uint64_t* path, uint64_t index, KeyType key, ValueType value, ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);
+  bool Leaf_merge(uint64_t* path, uint64_t index, KeyType key, ValueType value, ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);
   bool Consolidate();
 };
 
@@ -363,6 +368,16 @@ class Epoch {
     void join();
     bool leave();
     void performGc();
+};
+
+template <typename KeyType, typename ValueType, typename KeyComparator,
+          typename KeyEqualityChecker>
+class ThreadWrapper {
+  public:
+    Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *e;
+    ThreadWrapper(Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *epoch) {
+      this->e = epoch;
+    }
 };
 
 }  // End index namespace
