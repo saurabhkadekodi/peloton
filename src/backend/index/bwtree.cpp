@@ -2268,6 +2268,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
   remove_index->next = node_pointer;
   uint32_t chain_len = node_pointer->chain_len;
   remove_index->chain_len = chain_len + 1;
+  //TODO: this is the workaround I was trying corresponding to the first bug in the More Updates post
   if(!this->my_tree.comparator(this->key_list.begin()->first, merged_key))
   {
     //TODO should do CAS here
