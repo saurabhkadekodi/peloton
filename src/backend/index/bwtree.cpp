@@ -109,6 +109,7 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTree(
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* root_node =
       new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
           this->metadata, *this, root);
+  printf("About to install root\n");
   table.Install(root, root_node);
   LOG_DEBUG("Successfully created a tree of min_node_size %d, max_node_size %d",
             min_node_size, max_node_size);
@@ -125,31 +126,37 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     Install(
         uint64_t id,
         Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ptr) {
-  if (cas_mapping_table.find(id) == cas_mapping_table.end()) {
-    cas_mapping_table.insert(
-        pair<uint64_t,
-             Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
-            id, node_ptr));
+
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* table_val = nullptr;
+  if(!cas_mapping_table.find(id, table_val)) {
+    cas_mapping_table.insert(id, node_ptr);
     return true;
   }
 
   while (true) {
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* old_node =
         node_ptr->next;
-    typename map<uint64_t, Node<KeyType, ValueType, KeyComparator,
-                                KeyEqualityChecker>*>::iterator iter =
-        cas_mapping_table.find(id);
-    if (__sync_bool_compare_and_swap(&(iter->second), old_node, node_ptr)) {
-      iter = cas_mapping_table.find(id);
-      if (iter->second->type == INTERNAL_BW_NODE ||
-          iter->second->type == LEAF_BW_NODE) {
-        iter->second->chain_len = 0;
-        iter->second->next = NULL;
+    table_val = nullptr;
+    uint64_t table_val_addr = 0;
+    if(!cas_mapping_table.find(id, table_val, table_val_addr)) {
+      assert(0);
+    }
+    if (__sync_bool_compare_and_swap((void **)table_val_addr, old_node, node_ptr)) {
+      table_val = nullptr;
+      if(!cas_mapping_table.find(id, table_val)) {
+        assert(0);
+      }
+      if(table_val->type == INTERNAL_BW_NODE || table_val->type == LEAF_BW_NODE)
+      {
+        table_val->chain_len = 0;
+        table_val->next = NULL;
       }
       break;
     }
-    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_node =
-        cas_mapping_table[id];
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_node = nullptr;
+    if(!cas_mapping_table.find(id, cur_node)) {
+      assert(0);
+    }
     node_ptr->next = cur_node;
     node_ptr->chain_len = cur_node->chain_len + 1;
   }
@@ -160,11 +167,11 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* CASMappingTable<
     KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Get(uint64_t id) {
-  typename map<uint64_t, Node<KeyType, ValueType, KeyComparator,
-                              KeyEqualityChecker>*>::iterator it =
-      cas_mapping_table.find(id);
-  assert(it != cas_mapping_table.end());
-  return it->second;
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> * retval = nullptr;
+  if(!cas_mapping_table.find(id, retval)) {
+    assert(0);
+  }
+  return retval;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
