@@ -483,34 +483,34 @@ TEST(IndexTests, DeleteTreeSingleThreaded) {
   key9->SetValue(0, ValueFactory::GetIntegerValue(9), pool);
   key10->SetValue(0, ValueFactory::GetIntegerValue(10), pool);
   // INSERT
-  assert(index->InsertEntry(key0.get(), item0) == true);
-  assert(index->InsertEntry(key1.get(), item0) == true);
-  assert(index->InsertEntry(key2.get(), item0) == true);
-  assert(index->InsertEntry(key3.get(), item0) == true);
-  assert(index->InsertEntry(key4.get(), item0) == true);
+  assert(index->InsertEntry(key10.get(), item0) == true);
+  assert(index->InsertEntry(key9.get(), item0) == true);
+  assert(index->InsertEntry(key8.get(), item0) == true);
+  assert(index->InsertEntry(key7.get(), item0) == true);
+  assert(index->InsertEntry(key6.get(), item0) == true);
 
   assert(index->InsertEntry(key5.get(), item0) == true);
-  assert(index->InsertEntry(key6.get(), item0) == true);
-  assert(index->InsertEntry(key7.get(), item0) == true);
-  assert(index->InsertEntry(key8.get(), item0) == true);
-  assert(index->InsertEntry(key9.get(), item0) == true);
-  assert(index->InsertEntry(key10.get(), item0) == true);
+  assert(index->InsertEntry(key4.get(), item0) == true);
+  assert(index->InsertEntry(key3.get(), item0) == true);
+  assert(index->InsertEntry(key2.get(), item0) == true);
+  assert(index->InsertEntry(key1.get(), item0) == true);
+  assert(index->InsertEntry(key0.get(), item0) == true);
   printf("All the inserts were successful. Now deleting\n");
   // DELETE
-  assert(index->DeleteEntry(key0.get(), item0) == true);
+  assert(index->DeleteEntry(key1.get(), item0) == true);
   printf("Deleted 0\n");
   fflush(stdout);
-  assert(index->DeleteEntry(key1.get(), item0) == true);
-  assert(index->DeleteEntry(key2.get(), item0) == true);
-  assert(index->DeleteEntry(key3.get(), item0) == true);
-  assert(index->DeleteEntry(key4.get(), item0) == true);
-
-  assert(index->DeleteEntry(key5.get(), item0) == true);
-  assert(index->DeleteEntry(key6.get(), item0) == true);
-  assert(index->DeleteEntry(key7.get(), item0) == true);
-  assert(index->DeleteEntry(key8.get(), item0) == true);
-  assert(index->DeleteEntry(key9.get(), item0) == true);
   assert(index->DeleteEntry(key10.get(), item0) == true);
+  assert(index->DeleteEntry(key9.get(), item0) == true);
+  assert(index->DeleteEntry(key8.get(), item0) == true);
+  assert(index->DeleteEntry(key7.get(), item0) == true);
+
+  assert(index->DeleteEntry(key6.get(), item0) == true);
+  assert(index->DeleteEntry(key5.get(), item0) == true);
+  assert(index->DeleteEntry(key4.get(), item0) == true);
+  assert(index->DeleteEntry(key3.get(), item0) == true);
+  assert(index->DeleteEntry(key2.get(), item0) == true);
+  assert(index->DeleteEntry(key0.get(), item0) == true);
   locations = index->ScanKey(key0.get());
   EXPECT_EQ(locations.size(), 0);
   delete tuple_schema;

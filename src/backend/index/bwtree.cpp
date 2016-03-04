@@ -245,11 +245,11 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
             new_base->kv_list.equal_range(delete_delta->key);
         typename multimap<KeyType, ValueType, KeyEqualityChecker>::iterator it =
             values.first;
-        for (; it != values.second; it++) {
-          if (value_equals(it->second, delete_delta->value)) {
-            new_base->kv_list.erase(it);
-            break;
-          }
+        for (; it != values.second;) {
+          if (value_equals(it->second, delete_delta->value)) 
+            it = new_base->kv_list.erase(it);
+          else
+            it++;
         }
       } else if (temp->type == SPLIT) {
         LOG_DEBUG("Bypass the split delta");
@@ -343,6 +343,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
         base = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                            KeyEqualityChecker>*>(temp);
 
+    printf("Consolidating the internal node with id %ld\n", id);
     InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
         new_base =
             new InternalBWNode<KeyType, ValueType, KeyComparator,
@@ -357,6 +358,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
     new_base->leftmost_pointer = base->leftmost_pointer;
     printf("Set the leftmost pointer of %ld to %ld\n", new_base->id, new_base->leftmost_pointer);
     new_base->next = node_;
+
     bool gc_new_base = false;
     while (!stack.empty()) {
       temp = stack.back();
@@ -367,6 +369,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
               dynamic_cast<SplitIndexDeltaNode<
                   KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
                   temp);
+          printf("Adding key to the new base for the internal node\n");
           new_base->key_list.insert(pair<KeyType, uint64_t>(
               split_pointer->split_key, split_pointer->new_split_node_id));
           break;
@@ -383,14 +386,15 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
               new_base->key_list.equal_range(remove_pointer->deleted_key);
           typename multimap<KeyType, uint64_t, KeyEqualityChecker>::iterator it =
               values.first;
-          for (; it != values.second; it++) {
-            printf("Erasing a value while consolidating an internal node");
+          for (; it != values.second;) {
+            printf("This might be strange %d\n", this->equals(it->first, remove_pointer->deleted_key));
+            printf("Erasing a value while consolidating an internal node\n");
               if(equals(it->first, new_base->key_list.begin()->first))
               {
                 printf("Also setting its leftmost pointer\n");
                 new_base->leftmost_pointer = new_base->key_list.begin()->second;
               }
-              new_base->key_list.erase(it);
+              it = new_base->key_list.erase(it);
           }
           break;
         }
@@ -1167,11 +1171,17 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
 
     uint64_t parent_size = this->my_tree.Get_size(parent_id);
     if (parent_size + 1 < this->my_tree.max_node_size)
+    {
+      printf("Inserting in parent\n");
       ret_val = internal_pointer->Internal_insert(split_key, boundary_key,
                                                   new_node_id, tw);
+    }
     else
+    {
+      printf("Splitting parent\n");
       ret_val = internal_pointer->Internal_split(path, index - 1, split_key,
                                                  boundary_key, new_node_id, tw);
+    }
     return ret_val;
   } else {
     printf("Calling split root\n");
@@ -1305,7 +1315,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
   merge_node->next = n_node_pointer;
   merge_node->chain_len = n_node_pointer->chain_len + 1;
   if(direction == LEFT)
-    merge_node->merge_key = n_node_pointer->key_list.rbegin()->first;
+    merge_node->merge_key = self_node->key_list.begin()->first;
   else//assume either LEFT or RIGHT
     merge_node->merge_key = n_node_pointer->key_list.begin()->first;
   ret_val = this->my_tree.table.Install(neighbour_node_id, merge_node);
@@ -1546,7 +1556,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
   merge_node->chain_len = n_node_pointer->chain_len + 1;
   if(direction == LEFT)
   {
-    merge_node->merge_key = n_node_pointer->kv_list.rbegin()->first;
+    merge_node->merge_key = self_node->kv_list.begin()->first;
   }
   else //assume direction is either left or right
   {
@@ -2218,12 +2228,20 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
                                                          KeyType boundary_key,
                                                          uint64_t new_node_id,
                                                          ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw __attribute__((unused))) {
+                      printf("Internal insert called on node id %ld\n", this->id);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
       this->my_tree.table.Get(this->id);
   SplitIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
       split_index =
           new SplitIndexDeltaNode<KeyType, ValueType, KeyComparator,
                                   KeyEqualityChecker>(this->my_tree, this->id);
+  printf("Here is how the new key compares to existing keys\n");
+  typename multimap<KeyType, uint64_t, KeyComparator>::iterator iter = this->key_list.begin();
+  for(;iter!=this->key_list.end();iter++)
+  {
+    printf("LOOP %ld %d %d\n", distance(this->key_list.begin(), iter), this->my_tree.equals(iter->first, split_key), this->my_tree.comparator(iter->first, split_key));
+    fflush(stdout);
+  }
   split_index->split_key = split_key;
   split_index->boundary_key = boundary_key;
   split_index->next = node_pointer;
