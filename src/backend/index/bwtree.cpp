@@ -1329,16 +1329,20 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
   // or redistribute the keys. Make sure to consolidate before proceed
   if (total_count > this->my_tree.max_node_size) {
     // Redistribute keys
-    uint64_t lid, rid;
+    uint64_t lid, rid, l_neighbour, r_neighbour;
     if(direction == LEFT)
     {
       lid = neighbour_node_id;
       rid = self_node->id;
+      l_neighbour = n_node_pointer->left_sibling;
+      r_neighbour = self_node->right_sibling;
     }
     else if (direction == RIGHT)
     {
       lid = self_node->id;
       rid = neighbour_node_id;
+      l_neighbour = self_node->right_sibling;
+      r_neighbour = n_node_pointer->left_sibling;
     }
     else if (direction == UP)
     {
@@ -1353,10 +1357,10 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
                            KeyEqualityChecker>(this->my_tree.metadata,
                                                this->my_tree, rid);
 
-    L->left_sibling = n_node_pointer->left_sibling;
+    L->left_sibling = l_neighbour;
     L->right_sibling = R->id;
     R->left_sibling = L->id;
-    R->right_sibling = self_node->right_sibling;
+    R->right_sibling = r_neighbour;
 
     multimap<KeyType, uint64_t, KeyComparator> temp(
         KeyComparator(this->my_tree.metadata));
@@ -1410,7 +1414,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
       R->key_list.insert(pair<KeyType, uint64_t>(key, value));
       temp_iterator++;
     }
-    KeyType new_split_key = L->key_list.end()->first;
+    KeyType new_split_key = R->key_list.begin()->first;
     ret_val = self_node->my_tree.table.Install(L->id, L);
     if (!ret_val) return false;
     ret_val = self_node->my_tree.table.Install(R->id, R);
@@ -1573,17 +1577,21 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
   // or redistribute the keys. Make sure to consolidate before proceed
   if (total_count > this->my_tree.max_node_size) {
     // Redistribute keys
-    uint64_t lid, rid;
+    uint64_t lid, rid, l_neighbour, r_neighbour;
     if(direction == LEFT)
     {
       lid = neighbour_node_id;
       rid = self_node->id;
+      l_neighbour = n_node_pointer->left_sibling;
+      r_neighbour = self_node->right_sibling;
     }
     else if (direction == RIGHT)
     {
       lid = self_node->id;
       rid = neighbour_node_id;
-    }
+      l_neighbour = self_node->right_sibling;
+      r_neighbour = n_node_pointer->left_sibling;
+   }
     else if (direction == UP)
     {
       assert(false);
@@ -1595,14 +1603,15 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
         new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
             this->my_tree.metadata, this->my_tree, rid);
 
-    L->left_sibling = n_node_pointer->left_sibling;
+    L->left_sibling = l_neighbour;
     L->right_sibling = R->id;
     R->left_sibling = L->id;
-    R->right_sibling = this->right_sibling;
+    R->right_sibling = r_neighbour;
 
     multimap<KeyType, ValueType, KeyComparator> temp(
         KeyComparator(this->my_tree.metadata));
     uint64_t half_count = total_count / 2;
+    //TODO: we don't need separate LEFT and RIGHT cases, the multimap would sort according to key automatically
     if (direction == LEFT) {
       typename multimap<KeyType, ValueType, KeyComparator>::iterator
           left_iterator = n_node_pointer->kv_list.begin();
@@ -1652,7 +1661,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
       R->kv_list.insert(pair<KeyType, ValueType>(key, value));
       temp_iterator++;
     }
-    KeyType new_split_key = L->kv_list.end()->first;
+    KeyType new_split_key = R->kv_list.begin()->first;
     ret_val = this->my_tree.table.Install(L->id, L);
     if (!ret_val) return false;
     ret_val = this->my_tree.table.Install(R->id, R);
@@ -2439,7 +2448,6 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
   remove_index->next = node_pointer;
   uint32_t chain_len = node_pointer->chain_len;
   remove_index->chain_len = chain_len + 1;
-  //TODO: this is the workaround I was trying corresponding to the first bug in the More Updates post
   printf("merge key compares with the parent index as %d %d\n", this->my_tree.equals(merged_key, this->key_list.begin()->first), this->my_tree.comparator(merged_key, this->key_list.begin()->first));
   if(!this->my_tree.comparator(this->key_list.begin()->first, merged_key))
   {
