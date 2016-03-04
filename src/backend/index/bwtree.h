@@ -2308,6 +2308,7 @@ class BWTree {
   Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* current_epoch;
   uint64_t oldest_epoch;
   uint32_t max_epoch_size;
+  size_t memory_usage;
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator,

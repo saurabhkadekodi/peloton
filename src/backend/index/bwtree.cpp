@@ -66,6 +66,7 @@ bool Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::leave() {
         false) {
       delete new_e;
     } else {
+      this->my_tree.memory_usage += sizeof(*new_e);
       printf("** installed new epoch **\n");
     }
   }
@@ -106,10 +107,11 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTree(
   max_node_size = 4;
   tree_height = 1;
   root = table.Get_next_id();
+  memory_usage = 0;
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* root_node =
       new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
           this->metadata, *this, root);
-  printf("About to install root\n");
+  this->memory_usage += sizeof(*root_node);
   table.Install(root, root_node);
   LOG_DEBUG("Successfully created a tree of min_node_size %d, max_node_size %d",
             min_node_size, max_node_size);
@@ -117,7 +119,8 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTree(
   current_epoch =
       new Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
           *this, oldest_epoch, oldest_epoch);
-  max_epoch_size = 1;  // FIXME: change this to be less aggressive (say 64?)
+  this->memory_usage += sizeof(*current_epoch);
+  max_epoch_size = 1; //FIXME: change this to be less aggressive (say 64?)
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
@@ -228,8 +231,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
                KeyEqualityChecker>* new_base =
         new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
             this->metadata, *this, base->id);
-    // This is a workaround, Install will set the next to NULL again by checking
-    // the type
+    this->memory_usage += sizeof(*new_base);
+    //This is a workaround, Install will set the next to NULL again by checking the type
     new_base->next = node_;
 
     typename multimap<KeyType, ValueType, KeyComparator>::iterator base_it =
@@ -358,6 +361,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
         new_base =
             new InternalBWNode<KeyType, ValueType, KeyComparator,
                                KeyEqualityChecker>(this->metadata, *this, id);
+    this->memory_usage += sizeof(*new_base);
     typename multimap<KeyType, uint64_t, KeyComparator>::iterator iter =
         base->key_list.begin();
     for (; iter != base->key_list.end(); iter++) {
@@ -526,6 +530,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_root(
                  KeyEqualityChecker>* internal_pointer =
       new InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
           this->metadata, *this, new_root_id);
+  this->memory_usage += sizeof(*internal_pointer);
   internal_pointer->leftmost_pointer = left_pointer;
   internal_pointer->key_list.insert(
       pair<KeyType, uint64_t>(split_key, right_pointer));
@@ -544,18 +549,19 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Split_root(
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 vector<ValueType> BWTree<KeyType, ValueType, KeyComparator,
-                         KeyEqualityChecker>::Search_keyWrapper(KeyType key) {
-  auto tw =
-      new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-          current_epoch);
-  // auto e = current_epoch;
-  tw->e->join();
-  vector<ItemPointer> result = Search_key(key, tw);
-  if (tw->e->leave()) {
-    delete tw->e;
-  }
-  delete tw;
-  return result;
+  KeyEqualityChecker>::Search_keyWrapper(KeyType key) {
+    auto tw = new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(current_epoch);
+    this->memory_usage += sizeof(*tw);
+    //auto e = current_epoch;
+    tw->e->join();
+    vector<ItemPointer> result = Search_key(key, tw);
+    if(tw->e->leave()) {
+      delete tw->e;
+      this->memory_usage -= sizeof(*(tw->e));
+    }
+    delete tw;
+    this->memory_usage -= sizeof(*tw);
+    return result;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
@@ -672,19 +678,19 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search_key(
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
-bool BWTree<KeyType, ValueType, KeyComparator,
-            KeyEqualityChecker>::InsertWrapper(KeyType key,
-                                               ValueType location) {
-  auto tw =
-      new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-          current_epoch);
-  // auto e = current_epoch;
+bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertWrapper(
+    KeyType key, ValueType location) {
+  auto tw = new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(current_epoch);
+  this->memory_usage += sizeof(*tw);
+  //auto e = current_epoch;
   tw->e->join();
   auto retval = Insert(key, location, tw);
   if (tw->e->leave()) {
     delete tw->e;
+    this->memory_usage -= sizeof(*(tw->e));
   }
   delete tw;
+  this->memory_usage -= sizeof(*tw);
   return retval;
 }
 
@@ -756,19 +762,19 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
-bool BWTree<KeyType, ValueType, KeyComparator,
-            KeyEqualityChecker>::DeleteWrapper(KeyType key,
-                                               ValueType location) {
-  auto tw =
-      new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-          current_epoch);
-  // auto e = current_epoch;
+bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::DeleteWrapper(
+    KeyType key, ValueType location) {
+  auto tw = new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(current_epoch);
+  this->memory_usage += sizeof(*tw);
+  //auto e = current_epoch;
   tw->e->join();
   bool ret_val = Delete(key, location, tw);
   if (tw->e->leave()) {
     delete tw->e;
+    this->memory_usage -= sizeof(*(tw->e));
   }
   delete tw;
+  this->memory_usage -= sizeof(*tw);
   return ret_val;
 }
 
@@ -1113,6 +1119,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
   DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* delta =
       new DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
           this->my_tree, this->id, INSERT);
+  this->my_tree.memory_usage += sizeof(*delta);
   delta->key = key;
   delta->value = value;
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ =
@@ -1131,6 +1138,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
   DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* delta =
       new DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
           this->my_tree, this->id, DELETE);
+  this->my_tree.memory_usage += sizeof(*delta);
   delta->key = key;
   delta->value = value;
   delta->type = DELETE;
@@ -1167,6 +1175,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       new_leaf_node =
           new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
               this->my_tree.metadata, this->my_tree, new_node_id);
+  this->my_tree.memory_usage += sizeof(*new_leaf_node);
   new_leaf_node->left_sibling = this->id;
   new_leaf_node->right_sibling = this->right_sibling;
   printf("Set the right sibling of %ld to %ld\n", new_node_id,
@@ -1220,6 +1229,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                  KeyEqualityChecker>* split_node =
       new SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
           this->my_tree, this->id);
+  this->my_tree.memory_usage += sizeof(*split_node);
   split_node->next = self_node;
   split_node->target_node_id = new_node_id;
   split_node->split_key = split_key;
@@ -1368,6 +1378,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       remove_node =
           new RemoveDeltaNode<KeyType, ValueType, KeyComparator,
                               KeyEqualityChecker>(this->my_tree, this->id);
+  this->my_tree.memory_usage += sizeof(*remove_node);
   remove_node->next = self_node;
   remove_node->merged_to_id = neighbour_node_id;
   remove_node->direction = direction;
@@ -1391,7 +1402,8 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                  KeyEqualityChecker>* merge_node =
       new MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
           this->my_tree, neighbour_node_id);
-  merge_node->node_to_be_merged = self_node;
+  this->my_tree.memory_usage += sizeof(*merge_node);
+  merge_node->node_to_be_merged = this;
   merge_node->next = n_node_pointer;
   merge_node->chain_len = n_node_pointer->chain_len + 1;
   if (direction == LEFT)
@@ -1430,10 +1442,12 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         new InternalBWNode<KeyType, ValueType, KeyComparator,
                            KeyEqualityChecker>(this->my_tree.metadata,
                                                this->my_tree, lid);
+    this->my_tree.memory_usage += sizeof(*L);
     InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* R =
         new InternalBWNode<KeyType, ValueType, KeyComparator,
                            KeyEqualityChecker>(this->my_tree.metadata,
                                                this->my_tree, rid);
+    this->my_tree.memory_usage += sizeof(*R);
 
     L->left_sibling = l_neighbour;
     L->right_sibling = R->id;
@@ -1628,6 +1642,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       remove_node =
           new RemoveDeltaNode<KeyType, ValueType, KeyComparator,
                               KeyEqualityChecker>(this->my_tree, this->id);
+  this->my_tree.memory_usage += sizeof(*remove_node);
   remove_node->next = self_node;
   remove_node->merged_to_id = neighbour_node_id;
   remove_node->direction = direction;
@@ -1648,6 +1663,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                  KeyEqualityChecker>* merge_node =
       new MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
           this->my_tree, neighbour_node_id);
+  this->my_tree.memory_usage += sizeof(*merge_node);
   merge_node->node_to_be_merged = self_node;
   merge_node->next = n_node_pointer;
   merge_node->chain_len = n_node_pointer->chain_len + 1;
@@ -1688,10 +1704,11 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* L =
         new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
             this->my_tree.metadata, this->my_tree, lid);
+    this->my_tree.memory_usage += sizeof(*L);
     LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* R =
         new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
             this->my_tree.metadata, this->my_tree, rid);
-
+    this->my_tree.memory_usage += sizeof(*R);
     L->left_sibling = l_neighbour;
     L->right_sibling = R->id;
     R->left_sibling = L->id;
@@ -1852,6 +1869,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
       new_leaf_node =
           new LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
               this->my_tree.metadata, this->my_tree, new_id);
+  this->my_tree.memory_usage += sizeof(*new_leaf_node);
   multimap<KeyType, ValueType, KeyComparator> insert_set(
       KeyComparator(this->my_tree.metadata));
   multimap<KeyType, ValueType, KeyComparator> delete_set(
@@ -2050,16 +2068,17 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanWrapper(
     const vector<Value>& values, const vector<oid_t>& key_column_ids,
     const vector<ExpressionType>& expr_types,
     const ScanDirectionType& scan_direction) {
-  auto tw =
-      new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-          current_epoch);
-  // auto e = current_epoch;
+  auto tw = new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(current_epoch);
+  this->memory_usage += sizeof(*tw);
+  //auto e = current_epoch;
   tw->e->join();
   auto result = Scan(values, key_column_ids, expr_types, scan_direction, tw);
   if (tw->e->leave()) {
     delete tw->e;
+    this->memory_usage -= sizeof(*(tw->e));
   }
   delete tw;
+  this->memory_usage -= sizeof(*tw);
   return result;
 }
 
@@ -2077,8 +2096,9 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
 
   // If it is a special case, we can figure out the range to scan in the index
   // if (special_case == true) {
-
-  start_key.reset(new storage::Tuple(metadata->GetKeySchema(), true));
+  auto schema = new storage::Tuple(metadata->GetKeySchema(), true);
+  this->memory_usage += sizeof(*schema);
+  start_key.reset(schema);
   index_key.SetFromKey(start_key.get());
 
   // Construct the lower bound key tuple
@@ -2221,18 +2241,19 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
 
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
-vector<ItemPointer> BWTree<KeyType, ValueType, KeyComparator,
-                           KeyEqualityChecker>::ScanAllKeysWrapper() {
-  auto tw =
-      new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-          current_epoch);
-  // auto e = current_epoch;
+vector<ItemPointer>
+BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeysWrapper() {
+  auto tw = new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(current_epoch);
+  this->memory_usage += sizeof(*tw);
+  //auto e = current_epoch;
   tw->e->join();
   auto result = ScanAllKeys(tw);
   if (tw->e->leave()) {
     delete tw->e;
+    this->memory_usage -= sizeof(*(tw->e));
   }
   delete tw;
+  this->memory_usage -= sizeof(*tw);
   return result;
 }
 
@@ -2244,8 +2265,9 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys(
   vector<ItemPointer> result;
   KeyType index_key;
   std::unique_ptr<storage::Tuple> start_key;
-
-  start_key.reset(new storage::Tuple(metadata->GetKeySchema(), true));
+  auto schema = new storage::Tuple(metadata->GetKeySchema(), true);
+  this->memory_usage += sizeof(*tw);
+  start_key.reset(schema);
   index_key.SetFromKey(start_key.get());
 
   uint64_t* path = (uint64_t*)malloc(tree_height * sizeof(uint64_t));
@@ -2341,6 +2363,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       split_index =
           new SplitIndexDeltaNode<KeyType, ValueType, KeyComparator,
                                   KeyEqualityChecker>(this->my_tree, this->id);
+  this->my_tree.memory_usage += sizeof(*split_index);
   printf("Here is how the new key compares to existing keys\n");
   typename multimap<KeyType, uint64_t, KeyComparator>::iterator iter =
       this->key_list.begin();
@@ -2382,6 +2405,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                  KeyEqualityChecker>* new_internal_node =
       new InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
           this->my_tree.metadata, this->my_tree, new_internal_node_id);
+  this->my_tree.memory_usage += sizeof(*new_internal_node);
   new_internal_node->left_sibling = this->id;
   new_internal_node->right_sibling = this->right_sibling;
   if (self_node->right_sibling != 0) {
@@ -2452,6 +2476,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                  KeyEqualityChecker>* split_node =
       new SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
           this->my_tree, this->id);
+  this->my_tree.memory_usage += sizeof(*split_node);
   split_node->next = self_node;
   split_node->target_node_id = new_internal_node_id;
   split_node->split_key = split_key;
@@ -2556,7 +2581,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
       remove_index =
           new RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator,
                                    KeyEqualityChecker>(this->my_tree, this->id);
-  printf("internal delete called\n");
+  this->my_tree.memory_usage += sizeof(*remove_index);
   remove_index->deleted_key = merged_key;
   remove_index->next = node_pointer;
   uint32_t chain_len = node_pointer->chain_len;

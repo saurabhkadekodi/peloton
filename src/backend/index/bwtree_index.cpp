@@ -127,6 +127,13 @@ BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanKey(
 
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
+size_t
+BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::GetMemoryFootprint() {
+  return container.memory_usage;
+}
+
+template <typename KeyType, typename ValueType, class KeyComparator,
+          class KeyEqualityChecker>
 string BWTreeIndex<KeyType, ValueType, KeyComparator,
                    KeyEqualityChecker>::GetTypeName() const {
   return "BWTree";
