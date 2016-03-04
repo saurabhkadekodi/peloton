@@ -226,8 +226,9 @@ class InternalBWNode
                       KeyType requested_boundary_key, uint64_t new_node_id, ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);
   bool Internal_delete(KeyType merged_key);
   bool Internal_merge(uint64_t* path, uint64_t index, KeyType deleted_key, ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);
+  bool Internal_update(KeyType old_key, KeyType new_key);
   bool Consolidate() { return false; }
-  uint64_t Get_child_id(KeyType key);
+  uint64_t Get_child_id(KeyType key, vector<pair<KeyType, KeyType> >updated_keys);
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
@@ -352,6 +353,20 @@ class MergeDeltaNode
   KeyType merge_key;
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
       node_to_be_merged;
+  bool Consolidate() { return false; }
+};
+
+template <typename KeyType, typename ValueType, typename KeyComparator,
+          typename KeyEqualityChecker>
+class UpdateDeltaNode
+    : public Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker> {
+ public:
+  UpdateDeltaNode(
+      BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& bwt,
+      uint64_t id)
+      : Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(bwt, id,
+                                                                    UPDATE) {}
+  KeyType old_key, new_key;
   bool Consolidate() { return false; }
 };
 

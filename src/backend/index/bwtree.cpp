@@ -374,6 +374,30 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
               split_pointer->split_key, split_pointer->new_split_node_id));
           break;
         }
+        case (UPDATE):
+        {
+          UpdateDeltaNode<KeyType, ValueType, KeyComparator,
+                               KeyEqualityChecker>* update_pointer =
+              dynamic_cast<UpdateDeltaNode<
+                  KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+                  temp);
+          typename multimap<KeyType, uint64_t, KeyEqualityChecker>::iterator iter = new_base->key_list.begin();
+          for(;iter!=new_base->key_list.end();)
+          {
+            if(this->equals(iter->first, update_pointer->old_key))
+            {
+              uint64_t pointer_val = iter->second;
+              iter = new_base->key_list.erase(iter);
+              new_base->key_list.insert(pair<KeyType, uint64_t>(update_pointer->new_key, pointer_val));
+              //relying on the fact that key, pointer pairs are unique
+              break;
+            }
+            else
+              iter++;
+          }
+
+          break;
+        }
         case (REMOVE_INDEX): {
           RemoveIndexDeltaNode<KeyType, ValueType, KeyComparator,
                                KeyEqualityChecker>* remove_pointer =
@@ -810,6 +834,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
   // multimap<KeyType, ValueType, KeyComparator>
   // deleted_keys(KeyComparator(this->metadata));
   set<KeyType, KeyComparator> deleted_indexes(KeyComparator(this->metadata));
+  vector<pair<KeyType, KeyType> >updated_keys;
   uint64_t index = -1;
   location = -1;
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
@@ -845,13 +870,21 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
         }
         break;
       } 
+      case (UPDATE): {
+        UpdateDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            update_pointer =
+                dynamic_cast<UpdateDeltaNode<KeyType, ValueType, KeyComparator,
+                                        KeyEqualityChecker>*>(node_pointer);
+        updated_keys.push_back(pair<KeyType, KeyType>(update_pointer->old_key, update_pointer->new_key));
+        break;
+      }
       case (INTERNAL_BW_NODE): {
         InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
             internal_pointer =
                 dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                             KeyEqualityChecker>*>(node_pointer);
         prev_id = cur_id;
-        cur_id = internal_pointer->Get_child_id(key);
+        cur_id = internal_pointer->Get_child_id(key, updated_keys);
         printf("Internal pointer with id %ld returned child id as %ld\n", internal_pointer->id, cur_id);
         try_consolidation = true;
         break;
@@ -861,7 +894,17 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
             simple_pointer =
                 dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator,
                                        KeyEqualityChecker>*>(node_pointer);
-        if (equals(key, simple_pointer->key)) return simple_pointer->id;
+
+        KeyType cur_key = simple_pointer->key;
+        typename vector<pair<KeyType, KeyType> >::reverse_iterator updated_keys_iter = updated_keys.rbegin();
+        for(;updated_keys_iter!=updated_keys.rend();updated_keys_iter++)
+        {
+          if(this->equals(cur_key, updated_keys_iter->first))
+          {
+            cur_key = updated_keys_iter->second;
+          }
+        }
+        if (equals(key, cur_key)) return simple_pointer->id;
         node_pointer = simple_pointer->next;
         try_consolidation = false;
         break;
@@ -891,7 +934,16 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
             split_pointer =
                 dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator,
                                             KeyEqualityChecker>*>(node_pointer);
-        if (comparator(key, split_pointer->split_key)) {
+        KeyType cur_key = split_pointer->split_key;
+        typename vector<pair<KeyType, KeyType> >::reverse_iterator updated_keys_iter = updated_keys.rbegin();
+        for(;updated_keys_iter!=updated_keys.rend();updated_keys_iter++)
+        {
+          if(this->equals(cur_key, updated_keys_iter->first))
+          {
+            cur_key = updated_keys_iter->second;
+          }
+        }
+        if (comparator(key, cur_key)) {
           node_pointer = split_pointer->next;
           try_consolidation = false;
         } else {
@@ -912,9 +964,18 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
             merged_node =
                 dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                             KeyEqualityChecker>*>(merge_pointer->node_to_be_merged);
+          KeyType cur_key = merge_pointer->merge_key;
+          typename vector<pair<KeyType, KeyType> >::reverse_iterator updated_keys_iter = updated_keys.rbegin();
+          for(;updated_keys_iter!=updated_keys.rend();updated_keys_iter++)
+          {
+            if(this->equals(cur_key, updated_keys_iter->first))
+            {
+              cur_key = updated_keys_iter->second;
+            }
+          }
           if(merged_node->left_sibling == node_pointer->id)
           {
-            if (comparator(key, merge_pointer->merge_key)) {
+            if (comparator(key, cur_key)) {
               node_pointer = merge_pointer->next;
             } else {
               node_pointer = merge_pointer->node_to_be_merged;
@@ -922,7 +983,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
           }
           else if (merged_node->right_sibling == node_pointer->id)
           {
-            if(!comparator(merge_pointer->merge_key, key))
+            if(!comparator(cur_key, key))
                 node_pointer = merge_pointer->node_to_be_merged;
             else
               node_pointer = merge_pointer->next;
@@ -990,11 +1051,25 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
             dynamic_cast<SplitIndexDeltaNode<KeyType, ValueType, KeyComparator,
                                              KeyEqualityChecker>*>(
                 node_pointer);
-        if (deleted_indexes.find(split_index_pointer->split_key) ==
+        KeyType cur_split_key = split_index_pointer->split_key;
+        KeyType cur_boundary_key = split_index_pointer->boundary_key;
+        typename vector<pair<KeyType, KeyType> >::reverse_iterator updated_keys_iter = updated_keys.rbegin();
+        for(;updated_keys_iter!=updated_keys.rend();updated_keys_iter++)
+        {
+          if(this->equals(cur_split_key, updated_keys_iter->first))
+          {
+            cur_split_key = updated_keys_iter->second;
+          }
+          if(this->equals(cur_boundary_key, updated_keys_iter->first))
+          {
+            cur_boundary_key = updated_keys_iter->second;
+          }
+        }
+        if (deleted_indexes.find(cur_split_key) ==
             deleted_indexes.end()) {
-          if (comparator(key, split_index_pointer->split_key) ||
-              (!comparator(key, split_index_pointer->boundary_key) &&
-               equals(key, split_index_pointer->boundary_key))) {
+          if (comparator(key, cur_split_key) ||
+              (!comparator(key, cur_boundary_key) &&
+               equals(key, cur_boundary_key))) {
             node_pointer = split_index_pointer->next;
             try_consolidation = false;
           } else {
@@ -1330,12 +1405,14 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
   if (total_count > this->my_tree.max_node_size) {
     // Redistribute keys
     uint64_t lid, rid, l_neighbour, r_neighbour;
+    KeyType old_left_max, new_left_max;
     if(direction == LEFT)
     {
       lid = neighbour_node_id;
       rid = self_node->id;
       l_neighbour = n_node_pointer->left_sibling;
       r_neighbour = self_node->right_sibling;
+      old_left_max = n_node_pointer->key_list.end()->first;
     }
     else if (direction == RIGHT)
     {
@@ -1343,6 +1420,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
       rid = neighbour_node_id;
       l_neighbour = self_node->right_sibling;
       r_neighbour = n_node_pointer->left_sibling;
+      old_left_max = self_node->key_list.end()->first;
     }
     else if (direction == UP)
     {
@@ -1365,6 +1443,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
     multimap<KeyType, uint64_t, KeyComparator> temp(
         KeyComparator(this->my_tree.metadata));
     uint64_t half_count = total_count / 2;
+    //TODO: this if-else is not actually required, the multimap will anyway sort the values
     if (direction == LEFT) {
       typename multimap<KeyType, uint64_t, KeyComparator>::iterator
           left_iterator = n_node_pointer->key_list.begin();
@@ -1414,6 +1493,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
       R->key_list.insert(pair<KeyType, uint64_t>(key, value));
       temp_iterator++;
     }
+    new_left_max = L->key_list.end()->first;
     KeyType new_split_key = R->key_list.begin()->first;
     ret_val = self_node->my_tree.table.Install(L->id, L);
     if (!ret_val) return false;
@@ -1422,14 +1502,19 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
 
     // TODO: Free two old leaf nodes
 
-    ret_val = parent_pointer->Internal_delete(merge_node->merge_key);
+    ret_val = parent_pointer->Internal_update(merge_node->merge_key, new_split_key);
+
+    //ret_val = parent_pointer->Internal_delete(merge_node->merge_key);
+    if (!ret_val) return false;
+
+    ret_val = parent_pointer->Internal_update(old_left_max, new_left_max);
     if (!ret_val) return false;
     // we treat it as a split; sp means special purpose
-    KeyType sp_boundary_key = R->key_list.end()->first;
+    //KeyType sp_boundary_key = R->key_list.end()->first;
 
-    ret_val =
-        parent_pointer->Internal_insert(new_split_key, sp_boundary_key, R->id, tw);
-    if (!ret_val) return false;
+    //ret_val =
+    //    parent_pointer->Internal_insert(new_split_key, sp_boundary_key, R->id, tw);
+    //if (!ret_val) return false;
 
     return ret_val;
   } else {  // Normal merge case
@@ -1578,12 +1663,14 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
   if (total_count > this->my_tree.max_node_size) {
     // Redistribute keys
     uint64_t lid, rid, l_neighbour, r_neighbour;
+    KeyType old_left_max, new_left_max;
     if(direction == LEFT)
     {
       lid = neighbour_node_id;
       rid = self_node->id;
       l_neighbour = n_node_pointer->left_sibling;
       r_neighbour = self_node->right_sibling;
+      old_left_max = n_node_pointer->kv_list.end()->first;
     }
     else if (direction == RIGHT)
     {
@@ -1591,6 +1678,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
       rid = neighbour_node_id;
       l_neighbour = self_node->right_sibling;
       r_neighbour = n_node_pointer->left_sibling;
+      old_left_max = self_node->kv_list.end()->first;
    }
     else if (direction == UP)
     {
@@ -1661,6 +1749,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
       R->kv_list.insert(pair<KeyType, ValueType>(key, value));
       temp_iterator++;
     }
+    new_left_max = L->kv_list.end()->first;
     KeyType new_split_key = R->kv_list.begin()->first;
     ret_val = this->my_tree.table.Install(L->id, L);
     if (!ret_val) return false;
@@ -1669,14 +1758,18 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
 
     // TODO: Free two old leaf nodes
 
-    ret_val = parent_pointer->Internal_delete(merge_node->merge_key);
+    ret_val = parent_pointer->Internal_update(merge_node->merge_key, new_split_key);
+
+    //ret_val = parent_pointer->Internal_delete(merge_node->merge_key);
     if (!ret_val) return false;
 
-    // we treat it as a split; sp means special purpose
-    KeyType sp_boundary_key = R->kv_list.end()->first;
-    ret_val =
-        parent_pointer->Internal_insert(new_split_key, sp_boundary_key, R->id, tw);
+    ret_val = parent_pointer->Internal_update(old_left_max, new_left_max);
     if (!ret_val) return false;
+    // we treat it as a split; sp means special purpose
+    //KeyType sp_boundary_key = R->kv_list.end()->first;
+    //ret_val =
+    //    parent_pointer->Internal_insert(new_split_key, sp_boundary_key, R->id, tw);
+    //if (!ret_val) return false;
 
     return ret_val;
   } else {  // Normal merge case
@@ -2398,11 +2491,20 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 uint64_t InternalBWNode<KeyType, ValueType, KeyComparator,
-                        KeyEqualityChecker>::Get_child_id(KeyType key) {
+                        KeyEqualityChecker>::Get_child_id(KeyType key, vector<pair<KeyType, KeyType> >updated_keys) {
   typename multimap<KeyType, uint64_t, KeyComparator>::reverse_iterator iter =
       key_list.rbegin();
   for (; iter != key_list.rend(); iter++) {
-    if (!this->my_tree.comparator(key, iter->first)) {
+    KeyType cur_key = iter->first;
+    typename vector<pair<KeyType, KeyType> >::reverse_iterator updated_keys_iter = updated_keys.rbegin();
+    for(;updated_keys_iter!=updated_keys.rend();updated_keys_iter++)
+    {
+      if(this->my_tree.equals(cur_key, updated_keys_iter->first))
+      {
+        cur_key = updated_keys_iter->second;
+      }
+    }
+    if (!this->my_tree.comparator(key, cur_key)) {
       return iter->second;
     }
   }
@@ -2459,11 +2561,30 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
+bool InternalBWNode<KeyType, ValueType, KeyComparator,
+                    KeyEqualityChecker>::Internal_update(KeyType old_key, KeyType new_key) {
+  
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
+      this->my_tree.table.Get(this->id);
+  UpdateDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+      update_node =
+          new UpdateDeltaNode<KeyType, ValueType, KeyComparator,
+                                   KeyEqualityChecker>(this->my_tree, this->id);
+  update_node->old_key = old_key;
+  update_node->new_key = new_key;
+  uint32_t chain_len = node_pointer->chain_len;
+  update_node->chain_len = chain_len + 1;
+  update_node->next = node_pointer;
+  return this->my_tree.table.Install(this->id, update_node);
+}
+template <typename KeyType, typename ValueType, typename KeyComparator,
+          typename KeyEqualityChecker>
 void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Traverse(
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n) {
   /*
    * Inorder traversal of the BW Tree for debugging purposes.
    */
+  //TODO Add case for update node
   switch (n->type) {
     case INTERNAL_BW_NODE: {
       LOG_DEBUG("INTERNAL_BW_NODE id = %lu", n->id);
