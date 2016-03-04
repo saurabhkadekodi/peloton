@@ -19,7 +19,6 @@ namespace peloton {
 namespace index {
 using namespace std;
 
-
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
 BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTreeIndex(
@@ -91,7 +90,8 @@ BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
     const vector<Value> &values, const vector<oid_t> &key_column_ids,
     const vector<ExpressionType> &expr_types,
     const ScanDirectionType &scan_direction) {
-  return container.ScanWrapper(values, key_column_ids, expr_types, scan_direction);
+  return container.ScanWrapper(values, key_column_ids, expr_types,
+                               scan_direction);
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
