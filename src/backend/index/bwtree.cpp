@@ -50,7 +50,13 @@ void Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::performGc() {
    */
   printf("** garbage collecting epoch: cleaning %lu nodes **\n",
          to_be_cleaned.size());
-  to_be_cleaned.clear();
+  printf("** memory usage before cleaning = %lu\n", this->my_tree.memory_usage);
+  for(auto it = to_be_cleaned.begin(); it != to_be_cleaned.end(); it++) {
+    delete it;
+  }
+  assert(to_be_cleaned.size() == 0);
+  //to_be_cleaned.clear();
+  printf("** memory usage after cleaning = %lu\n", this->my_tree.memory_usage);
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
@@ -556,11 +562,11 @@ vector<ValueType> BWTree<KeyType, ValueType, KeyComparator,
     tw->e->join();
     vector<ItemPointer> result = Search_key(key, tw);
     if(tw->e->leave()) {
-      delete tw->e;
       this->memory_usage -= sizeof(*(tw->e));
+      delete tw->e;
     }
-    delete tw;
     this->memory_usage -= sizeof(*tw);
+    delete tw;
     return result;
 }
 
@@ -686,11 +692,11 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertWrappe
   tw->e->join();
   auto retval = Insert(key, location, tw);
   if (tw->e->leave()) {
-    delete tw->e;
     this->memory_usage -= sizeof(*(tw->e));
+    delete tw->e;
   }
-  delete tw;
   this->memory_usage -= sizeof(*tw);
+  delete tw;
   return retval;
 }
 
@@ -770,11 +776,11 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::DeleteWrappe
   tw->e->join();
   bool ret_val = Delete(key, location, tw);
   if (tw->e->leave()) {
-    delete tw->e;
     this->memory_usage -= sizeof(*(tw->e));
+    delete tw->e;
   }
-  delete tw;
   this->memory_usage -= sizeof(*tw);
+  delete tw;
   return ret_val;
 }
 
@@ -2074,11 +2080,11 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanWrapper(
   tw->e->join();
   auto result = Scan(values, key_column_ids, expr_types, scan_direction, tw);
   if (tw->e->leave()) {
-    delete tw->e;
     this->memory_usage -= sizeof(*(tw->e));
+    delete tw->e;
   }
-  delete tw;
   this->memory_usage -= sizeof(*tw);
+  delete tw;
   return result;
 }
 
@@ -2249,11 +2255,11 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeysWrappe
   tw->e->join();
   auto result = ScanAllKeys(tw);
   if (tw->e->leave()) {
-    delete tw->e;
     this->memory_usage -= sizeof(*(tw->e));
+    delete tw->e;
   }
-  delete tw;
   this->memory_usage -= sizeof(*tw);
+  delete tw;
   return result;
 }
 
