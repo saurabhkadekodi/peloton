@@ -2249,6 +2249,7 @@ class BWTree {
   KeyEqualityChecker equals;
   ItemPointerEqualityChecker value_equals;
   bool allow_duplicates;
+  uint32_t policy;
   set<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> freelist;
   CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker> table;
   // BWTree() {CASMappingTable<KeyType, ValueType, KeyComparator,
@@ -2256,7 +2257,7 @@ class BWTree {
   // BWTree() {}
   BWTree(IndexMetadata* metadata, KeyComparator comparator,
          KeyEqualityChecker equals, ItemPointerEqualityChecker value_equals,
-         bool allow_duplicates);
+         bool allow_duplicates, uint32_t policy);
   // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator,
   // KeyEqualityChecker> table) : table(table){}
   uint32_t min_node_size;
