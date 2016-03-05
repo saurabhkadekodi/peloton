@@ -51,11 +51,11 @@ void Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::performGc() {
   printf("** garbage collecting epoch: cleaning %lu nodes **\n",
          to_be_cleaned.size());
   printf("** memory usage before cleaning = %lu\n", this->my_tree.memory_usage);
-  for(auto it = to_be_cleaned.begin(); it != to_be_cleaned.end(); it++) {
+  /*for(auto it = to_be_cleaned.begin(); it != to_be_cleaned.end(); it++) {
     delete it;
-  }
+  }*/
+  to_be_cleaned.clear();
   assert(to_be_cleaned.size() == 0);
-  //to_be_cleaned.clear();
   printf("** memory usage after cleaning = %lu\n", this->my_tree.memory_usage);
 }
 
@@ -103,12 +103,13 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
 BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTree(
     IndexMetadata* metadata, KeyComparator comparator,
     KeyEqualityChecker equals, ItemPointerEqualityChecker value_equals,
-    bool allow_duplicates = true)
+    bool allow_duplicates = true, uint32_t policy = 10)
     : metadata(metadata),
       comparator(comparator),
       equals(equals),
       value_equals(value_equals),
-      allow_duplicates(allow_duplicates) {
+      allow_duplicates(allow_duplicates),
+      policy(policy) {
   min_node_size = 2;
   max_node_size = 4;
   tree_height = 1;
@@ -204,9 +205,13 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
     uint64_t id, bool force,
     ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw) {
   bool ret_val = true;
-  force = force;  // TODO: we don't care about it for now
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ =
       this->table.Get(id);
+  // Not reaching the threshold
+  if (node_ -> chain_len < this -> policy && !force)
+  {
+    return true;
+  }
   deque<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> stack;
   // Collect delta chains
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temp = node_;
