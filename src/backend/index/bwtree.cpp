@@ -212,6 +212,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
   {
     return true;
   }
+  printf("\t\t\t(^_^)Consolidate is called on %lu due to %d, chain_len %u(^_^)\n",id,  force, node_->chain_len);
   deque<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> stack;
   // Collect delta chains
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temp = node_;
@@ -233,6 +234,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
     temp = temp->next;
   }
 
+  printf("\t\t**** Consolidate temp id = %lu, type %d\n", temp->id, temp->type);
   if (temp->type == LEAF_BW_NODE) {
     LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* base =
         dynamic_cast<
@@ -244,7 +246,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
             this->metadata, *this, base->id);
     this->memory_usage += sizeof(*new_base);
     //This is a workaround, Install will set the next to NULL again by checking the type
-    new_base->next = node_;
+    //new_base->next = node_;
+    new_base->next = nullptr;
 
     typename multimap<KeyType, ValueType, KeyComparator>::iterator base_it =
         base->kv_list.begin();
@@ -286,7 +289,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
         LOG_DEBUG("Bypass the split delta");
       } else if (temp->type == REMOVE) {
         // This node was removed, we need to garbage collect
-        gc_new_base = true;
+        //gc_new_base = true;
       } else if (temp->type == MERGE) {
         encounter_merge_delta = true;
         MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
@@ -645,6 +648,11 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search_key(
           continue;
         }
       } break;
+      case (REMOVE): {
+        //printf("Remove node from search_key = %p\n", node_pointer);
+        //assert(node_pointer->next == nullptr);
+        //node_pointer = node_pointer->next;
+      } break;
       case (LEAF_BW_NODE): {
         LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
             leaf_pointer = nullptr;
@@ -702,6 +710,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertWrappe
   }
   this->memory_usage -= sizeof(*tw);
   delete tw;
+  auto root_node = table.Get(root);
+  Traverse(root_node);
   return retval;
 }
 
@@ -818,10 +828,36 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
     printf("Key Value pair does not exist\n");
     return false;
   }
-
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta_node = nullptr;
   while (cur_pointer->next) {
+    if (cur_pointer -> type == REMOVE) {
+      printf("I've seen a remove delta\n");
+      seen_remove_delta_node = cur_pointer;
+    }
     cur_pointer = cur_pointer->next;
   }
+  if (seen_remove_delta_node != nullptr) {
+    printf("Redriect the delete to my neighbor\n");
+    RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta = dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(seen_remove_delta_node);
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* target = this -> table.Get(seen_remove_delta->merged_to_id);
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temptemp = target;
+    while (temptemp -> next != nullptr) {
+      temptemp = temptemp -> next;
+    }
+    LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+      leaf_pointer = dynamic_cast<
+          LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+          temptemp);
+    printf("Leaf delete on my merged neighbor\n");
+    free(path);
+    auto retval = leaf_pointer->Leaf_delete(key, value);
+    auto root_node = table.Get(root);
+    Traverse(root_node);
+    return retval;
+  }
+
+
+
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
       leaf_pointer = dynamic_cast<
           LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
@@ -1330,7 +1366,8 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       else if (right_child_size == 0)
         new_root_id = self_node->leftmost_pointer;
       else
-        assert(false);  // this should never happen
+        return true;
+        //assert(false);  // this should never happen
       // this->my_tree.freelist.insert(self_node);
       tw->e->to_be_cleaned.push_back(self_node);
       printf("Setting the new root as %ld\n", new_root_id);
@@ -1654,6 +1691,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
           new RemoveDeltaNode<KeyType, ValueType, KeyComparator,
                               KeyEqualityChecker>(this->my_tree, this->id);
   this->my_tree.memory_usage += sizeof(*remove_node);
+  printf("Remove node = %p | self_node->id = %lu | self_node = %p\n", remove_node, self_node->id, self_node);
   remove_node->next = self_node;
   remove_node->merged_to_id = neighbour_node_id;
   remove_node->direction = direction;
@@ -1812,7 +1850,8 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     typename multimap<KeyType, ValueType, KeyComparator>::iterator
         this_iterator = self_node->kv_list.begin();
     for (; this_iterator != self_node->kv_list.end(); this_iterator++) {
-      KeyType key = this_iterator->first;
+      KeyType key = this_iterator->first;auto root_node = table.Get(root);
+    Traverse(root_node);
       ValueType value = this_iterator->second;
       n_node_pointer->Leaf_insert(key, value);
     }
@@ -2644,6 +2683,14 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
   update_node->next = node_pointer;
   return this->my_tree.table.Install(this->id, update_node);
 }
+
+template <typename KeyType, typename ValueType, typename KeyComparator,
+          typename KeyEqualityChecker>
+void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Traverse() {
+  auto root_node = table.Get(root);
+  Traverse(root_node);
+}
+
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Traverse(

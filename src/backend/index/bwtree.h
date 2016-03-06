@@ -2240,8 +2240,8 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
 class BWTree {
   // friend class BWTreeIndex<KeyType, ValueType, KeyComparator,
   // KeyEqualityChecker>;
- private:
-  void Traverse(Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n);
+ //private:
+  //void Traverse(Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n);
 
  public:
   IndexMetadata* metadata;
@@ -2310,6 +2310,8 @@ class BWTree {
   uint64_t oldest_epoch;
   uint32_t max_epoch_size;
   size_t memory_usage;
+  void Traverse(Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n);
+  void Traverse();
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
