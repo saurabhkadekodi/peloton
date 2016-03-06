@@ -2202,7 +2202,7 @@ class Node {
     next = nullptr;
     chain_len = 0;
   }
-  ~Node() { next->~Node(); }
+  virtual ~Node() {}
   virtual bool Consolidate() = 0;
 };
 
@@ -2258,6 +2258,7 @@ class BWTree {
   BWTree(IndexMetadata* metadata, KeyComparator comparator,
          KeyEqualityChecker equals, ItemPointerEqualityChecker value_equals,
          bool allow_duplicates, uint32_t policy);
+  ~BWTree();
   // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator,
   // KeyEqualityChecker> table) : table(table){}
   uint32_t min_node_size;
@@ -2312,6 +2313,7 @@ class BWTree {
   size_t memory_usage;
   void Traverse(Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n);
   void Traverse();
+  void CleanupTreeRecursively(uint64_t id, ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *tw);
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
@@ -2339,6 +2341,7 @@ class InternalBWNode
         right_sibling(0),
         low(0),
         high(0) {}
+  ~InternalBWNode() {}
   bool Internal_insert(
       KeyType split_key, KeyType boundary_key, uint64_t new_node_id,
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
@@ -2378,6 +2381,7 @@ class LeafBWNode
         right_sibling(0),
         low(0),
         high(0) {}
+  ~LeafBWNode() {}
   bool Leaf_insert(KeyType key, ValueType value);
   bool Leaf_delete(KeyType key, ValueType value);
   bool Leaf_split(

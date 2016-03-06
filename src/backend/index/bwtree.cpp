@@ -36,8 +36,9 @@ void Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::join() {
   /*
    * We call join from every operation that needs to be performed on the tree.
    */
-  printf("** joining epoch **\n");
+  //printf("** joining epoch **\n");
   ref_count.fetch_add(1);
+  printf("** joining epoch ref count %lu **\n", ref_count.load());
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
@@ -51,9 +52,10 @@ void Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::performGc() {
   printf("** garbage collecting epoch: cleaning %lu nodes **\n",
          to_be_cleaned.size());
   printf("** memory usage before cleaning = %lu\n", this->my_tree.memory_usage);
-  /*for(auto it = to_be_cleaned.begin(); it != to_be_cleaned.end(); it++) {
-    delete it;
-  }*/
+  for(auto it = to_be_cleaned.begin(); it != to_be_cleaned.end(); it++) {
+    this->my_tree.memory_usage -= sizeof(*(*it));
+    delete *it;
+  }
   to_be_cleaned.clear();
   assert(to_be_cleaned.size() == 0);
   printf("** memory usage after cleaning = %lu\n", this->my_tree.memory_usage);
@@ -63,7 +65,7 @@ template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
 bool Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::leave() {
   ref_count.fetch_sub(1);
-  printf("** leaving epoch **\n");
+  printf("** leaving epoch ref count = %lu **\n", ref_count.load());
   if (to_be_cleaned.size() >= my_tree.max_epoch_size) {
     printf("** creating epoch %lu **\n", generation);
     auto new_e = new Epoch(this->my_tree, this->generation + 1,
@@ -73,7 +75,7 @@ bool Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::leave() {
       delete new_e;
     } else {
       this->my_tree.memory_usage += sizeof(*new_e);
-      printf("** installed new epoch **\n");
+      printf("** installed new epoch %lu **\n", new_e->generation);
     }
   }
   if (__sync_bool_compare_and_swap(&(my_tree.current_epoch), this, this) ==
@@ -82,7 +84,7 @@ bool Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::leave() {
      * this means epoch changed before this thread reached leave.
      */
     if (ref_count == 0) {
-      if (__sync_bool_compare_and_swap(&(my_tree.oldest_epoch), oldest_epoch,
+      if (__sync_bool_compare_and_swap(&(my_tree.oldest_epoch), this->generation,
                                        this->generation + 1)) {
         /*
          * perform cleaning of this epoch, because we don't need it anymore.
@@ -128,6 +130,60 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTree(
           *this, oldest_epoch, oldest_epoch);
   this->memory_usage += sizeof(*current_epoch);
   max_epoch_size = 1; //FIXME: change this to be less aggressive (say 64?)
+}
+
+template <typename KeyType, typename ValueType, typename KeyComparator,
+          typename KeyEqualityChecker>
+BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::~BWTree() {
+  auto tw = new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(current_epoch);
+  this->memory_usage += sizeof(*tw);
+  tw->e->join();
+  CleanupTreeRecursively(root, tw);
+  if(tw->e->leave()) {
+    this->memory_usage -= sizeof(*(tw->e));
+    delete tw->e;
+  }
+  this->memory_usage -= sizeof(*tw);
+  delete tw;
+
+  if(current_epoch != nullptr) {
+    current_epoch->performGc();
+    this->memory_usage -= sizeof(*(current_epoch));
+    delete current_epoch;
+  }
+}
+
+template <typename KeyType, typename ValueType, typename KeyComparator,
+          typename KeyEqualityChecker>
+void BWTree<KeyType, ValueType, KeyComparator,
+     KeyEqualityChecker>::CleanupTreeRecursively(uint64_t id,
+         ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>
+         *tw) {
+  LOG_DEBUG("Cleaning up node %lu", id);
+  Consolidate(id, true, tw);
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node =
+      this->table.Get(id);
+  if(node == nullptr) {
+    return;
+  }
+  switch(node->type) {
+    case (INTERNAL_BW_NODE): {
+                               LOG_DEBUG("point 2\n");
+                               InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker> *node_ = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node);
+                               if(node_->leftmost_pointer) {
+                                 CleanupTreeRecursively(node_->leftmost_pointer, tw);
+                               }
+                               auto it = node_->key_list.begin();
+                               for(; it != node_->key_list.end(); it++) {
+                                 CleanupTreeRecursively(it->second, tw);
+                               }
+                             } break;
+    default:
+      break;
+  }
+  if(node) {
+    delete node;
+  }
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
@@ -269,6 +325,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
                                        KeyEqualityChecker>*>(temp);
         new_base->kv_list.insert(
             pair<KeyType, ValueType>(insert_delta->key, insert_delta->value));
+        tw->e->to_be_cleaned.push_back(temp);
       } else if (temp->type == DELETE) {
         DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
             delete_delta =
@@ -285,11 +342,14 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
           else
             it++;
         }
+        tw->e->to_be_cleaned.push_back(temp);
       } else if (temp->type == SPLIT) {
         LOG_DEBUG("Bypass the split delta");
+        tw->e->to_be_cleaned.push_back(temp);
       } else if (temp->type == REMOVE) {
         // This node was removed, we need to garbage collect
         //gc_new_base = true;
+        //tw->e->to_be_cleaned.push_back(temp);
       } else if (temp->type == MERGE) {
         encounter_merge_delta = true;
         MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
@@ -347,6 +407,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
 
         // this->freelist.insert(merge_pointer->node_to_be_merged);
         tw->e->to_be_cleaned.push_back(merge_pointer->node_to_be_merged);
+        //tw->e->to_be_cleaned.push_back(temp);
       } else {
         assert(false);
       }
@@ -371,6 +432,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
                                            KeyEqualityChecker>*>(temp);
 
     printf("Consolidating the internal node with id %ld\n", id);
+    LOG_DEBUG("########## new internal node id = %lu", id);
     InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
         new_base =
             new InternalBWNode<KeyType, ValueType, KeyComparator,
@@ -520,8 +582,10 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
       new_base->left_sibling = base->left_sibling;
     if (!(encounter_merge_delta && base->right_sibling == merge_delta_id))
       new_base->right_sibling = base->right_sibling;
-    if (!gc_new_base)
+    if (!gc_new_base) {
+      LOG_DEBUG("######### installing id %lu", id);
       ret_val = this->table.Install(id, new_base);
+    }
     else {
       // this->freelist.insert(new_base);
       tw->e->to_be_cleaned.push_back(new_base);
@@ -710,8 +774,6 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::InsertWrappe
   }
   this->memory_usage -= sizeof(*tw);
   delete tw;
-  auto root_node = table.Get(root);
-  Traverse(root_node);
   return retval;
 }
 
@@ -734,7 +796,10 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   vector<ValueType> values_for_key = Search_key(key, tw);
   typename vector<ValueType>::iterator i;
 
-  if (!allow_duplicates && values_for_key.size() != 0) return false;
+  if (!allow_duplicates && values_for_key.size() != 0) {
+    free(path);
+    return false;
+  }
 
   /*
   bool duplicate_found = false;
@@ -826,6 +891,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
 
   if (!delete_possible) {
     printf("Key Value pair does not exist\n");
+    free(path);
     return false;
   }
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta_node = nullptr;
@@ -874,6 +940,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
   } else {
     printf("Leaf merge\n");
     auto retval = leaf_pointer->Leaf_merge(path, location, key, value, tw);
+    free(path);
     auto root_node = table.Get(root);
     Traverse(root_node);
     return retval;
@@ -2423,7 +2490,7 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys(
     else
       reached_end = true;
   }
-
+  free(path);
   return result;
 }
 template <typename KeyType, typename ValueType, typename KeyComparator,
