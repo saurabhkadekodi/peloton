@@ -288,7 +288,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
       } else if (temp->type == SPLIT) {
         LOG_DEBUG("Bypass the split delta");
       } else if (temp->type == REMOVE) {
-        // This node was removed, we need to garbage collect
+        // This node will be removed, the node it's merging to does GC
         //gc_new_base = true;
       } else if (temp->type == MERGE) {
         encounter_merge_delta = true;
@@ -451,7 +451,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
         case (SPLIT):
           break;
         case (REMOVE):
-          gc_new_base = true;
+          // This node will be removed, the node it's merging to does GC
+          // gc_new_base = true;
           break;
         case (MERGE): {
           encounter_merge_delta = true;
@@ -752,9 +753,44 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   if(duplicate_found)
     return false;
   */
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta_node = nullptr;
 
   while (cur_pointer->next) {
+    if (cur_pointer -> type == REMOVE) {
+      printf("I've seen a remove delta\n");
+      seen_remove_delta_node = cur_pointer;
+    }
     cur_pointer = cur_pointer->next;
+  }
+
+
+  if (seen_remove_delta_node != nullptr) {
+    RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta = dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(seen_remove_delta_node);
+    printf("Redriect the insert to my neighbor\n");
+    uint64_t my_node_size = Get_size(node_id);
+    uint64_t neighbor_id = seen_remove_delta->merged_to_id;
+    uint64_t neighbor_node_size = Get_size(neighbor_id);
+    if (my_node_size + neighbor_node_size == max_node_size - 1)
+    {
+      // Tricky case, we consolidate because the node is about to overflow
+      Consolidate(neighbor_id, true, tw);
+    }
+    // Since there could be consolidating happening, seen_remove_delta is no longer accessible!!!
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* target = this -> table.Get(neighbor_id);
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temptemp = target;
+    while (temptemp -> next != nullptr) {
+      temptemp = temptemp -> next;
+    }
+    LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+      leaf_pointer = dynamic_cast<
+          LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+          temptemp);
+    printf("Leaf insert on my merged neighbor\n");
+    free(path);
+    auto retval = leaf_pointer->Leaf_insert(key, value);
+    auto root_node = table.Get(root);
+    Traverse(root_node);
+    return retval;
   }
 
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
@@ -837,9 +873,18 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
     cur_pointer = cur_pointer->next;
   }
   if (seen_remove_delta_node != nullptr) {
-    printf("Redriect the delete to my neighbor\n");
     RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta = dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(seen_remove_delta_node);
-    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* target = this -> table.Get(seen_remove_delta->merged_to_id);
+    printf("Redriect the delete to my neighbor\n");
+    uint64_t my_node_size = Get_size(node_id);
+    uint64_t neighbor_id = seen_remove_delta->merged_to_id;
+    uint64_t neighbor_node_size = Get_size(neighbor_id);
+    if (my_node_size + neighbor_node_size == min_node_size + 1)
+    {
+      // Tricky case, we consolidate because the node is about to underflow
+      Consolidate(neighbor_id, true, tw);
+    }
+    // Since there could be consolidating happening, seen_remove_delta is no longer accessible!!!
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* target = this -> table.Get(neighbor_id);
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temptemp = target;
     while (temptemp -> next != nullptr) {
       temptemp = temptemp -> next;
