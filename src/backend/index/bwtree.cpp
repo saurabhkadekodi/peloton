@@ -941,6 +941,9 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
                                          KeyEqualityChecker>*>(node_pointer);
         updated_keys.push_back(pair<KeyType, KeyType>(update_pointer->old_key,
                                                       update_pointer->new_key));
+        node_pointer = node_pointer -> next;
+        printf("Hello\n");
+        try_consolidation = false;
         break;
       }
       case (INTERNAL_BW_NODE): {
@@ -2028,6 +2031,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
                                         KeyEqualityChecker>*>(node_pointer);
         typename multimap<KeyType, ValueType, KeyComparator>::iterator iter =
             leaf_pointer->kv_list.begin();
+        printf("Leaf node size = %lu\n", leaf_pointer->kv_list.size());
         for (; iter != leaf_pointer->kv_list.end(); iter++) {
           if (split_delta_encountered && !comparator(iter->first, split_key))
             continue;
@@ -2101,13 +2105,16 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
         end = true;
       } break;
       default:
+        printf("here is where it is\n");
         break;
     }
+    printf("in the while loop\n");
     if (!end)
       node_pointer = node_pointer->next;
     else
       break;
   }
+  printf("returnijng ...\n");
   return count;
 }
 
@@ -2392,7 +2399,7 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys(
       }
       node_pointer = node_pointer->next;
     }
-    //printf("LEAF ID = %lu | size of result = %lu\n", leaf_id, result.size());
+    printf("LEAF ID = %lu | size of result = %lu\n", leaf_id, result.size());
     /*
      * Split leaf node is not truncated; so we call Get_size on the leaf node and only iterate
      * through those values starting from the left.
@@ -2410,6 +2417,7 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys(
       iter++;
       result.push_back(location);
     }
+    printf("Siblings: left = %lu, right = %lu\n", leaf_pointer->left_sibling, leaf_pointer->right_sibling);
     if (leaf_pointer->right_sibling)
       leaf_id = leaf_pointer->right_sibling;
     else
