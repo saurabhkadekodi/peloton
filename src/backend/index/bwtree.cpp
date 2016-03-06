@@ -767,12 +767,12 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   if (seen_remove_delta_node != nullptr) {
     RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta = dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(seen_remove_delta_node);
     printf("Redriect the insert to my neighbor\n");
-    uint64_t my_node_size = Get_size(node_id);
     uint64_t neighbor_id = seen_remove_delta->merged_to_id;
     uint64_t neighbor_node_size = Get_size(neighbor_id);
-    if (my_node_size + neighbor_node_size == max_node_size - 1)
+    if (neighbor_node_size == max_node_size - 1)
     {
       // Tricky case, we consolidate because the node is about to overflow
+      printf("Finish the consolidation");
       Consolidate(neighbor_id, true, tw);
     }
     // Since there could be consolidating happening, seen_remove_delta is no longer accessible!!!
@@ -875,12 +875,12 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
   if (seen_remove_delta_node != nullptr) {
     RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta = dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(seen_remove_delta_node);
     printf("Redriect the delete to my neighbor\n");
-    uint64_t my_node_size = Get_size(node_id);
     uint64_t neighbor_id = seen_remove_delta->merged_to_id;
     uint64_t neighbor_node_size = Get_size(neighbor_id);
-    if (my_node_size + neighbor_node_size == min_node_size + 1)
+    if (neighbor_node_size == min_node_size + 1)
     {
       // Tricky case, we consolidate because the node is about to underflow
+      printf("Finish the consolidation");
       Consolidate(neighbor_id, true, tw);
     }
     // Since there could be consolidating happening, seen_remove_delta is no longer accessible!!!
@@ -1346,8 +1346,15 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         this->my_tree.table.Get(parent_id);
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_pointer =
         parent_node_;
-    while (cur_pointer->next) cur_pointer = cur_pointer->next;
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta_node = nullptr;
 
+  while (cur_pointer->next) {
+    if (cur_pointer -> type == REMOVE) {
+      printf("I've seen a remove delta in Leaf_split of my parent\n");
+      seen_remove_delta_node = cur_pointer;
+    }
+    cur_pointer = cur_pointer->next;
+  }
     InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
         internal_pointer =
             dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
@@ -1356,6 +1363,36 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     uint64_t parent_size = this->my_tree.Get_size(parent_id);
     if (parent_size + 1 < this->my_tree.max_node_size) {
       printf("Inserting in parent\n");
+                    if (seen_remove_delta_node != nullptr) {
+    RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta = dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(seen_remove_delta_node);
+    printf("Redriect the cascading split to parent's neighbor\n");
+    uint64_t neighbor_id = seen_remove_delta->merged_to_id;
+    uint64_t neighbor_node_size = this->my_tree.Get_size(neighbor_id);
+    if (neighbor_node_size == this->my_tree.max_node_size - 1)
+    {
+      // Tricky case, we consolidate because the node is about to underflow
+      printf("Finish the consolidation");
+      this->my_tree.Consolidate(neighbor_id, true, tw);
+    }
+    // Since there could be consolidating happening, seen_remove_delta is no longer accessible!!!
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* target = this -> my_tree.table.Get(neighbor_id);
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temptemp = target;
+    while (temptemp -> next != nullptr) {
+      temptemp = temptemp -> next;
+    }
+    InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+      true_parent_pointer = dynamic_cast<
+          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+          temptemp);
+    printf("Internal insert split delta on my merged neighbor\n");
+    free(path);
+    auto retval = true_parent_pointer->Internal_insert(split_key, boundary_key,
+                                                  new_node_id, tw);
+    auto root_node = this -> my_tree.table.Get(this->my_tree.root);
+    this -> my_tree.Traverse(root_node);
+    return retval;
+  }
+
       ret_val = internal_pointer->Internal_insert(split_key, boundary_key,
                                                   new_node_id, tw);
     } else {
@@ -1459,7 +1496,15 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       parent_node_pointer = this->my_tree.table.Get(parent_id);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_pointer =
       parent_node_pointer;
-  while (cur_pointer->next) cur_pointer = cur_pointer->next;
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta_node = nullptr;
+
+  while (cur_pointer->next) {
+    if (cur_pointer -> type == REMOVE) {
+      printf("I've seen a remove delta in internal_merge of my parent\n");
+      seen_remove_delta_node = cur_pointer;
+    }
+    cur_pointer = cur_pointer->next;
+  }
 
   InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
       parent_pointer =
@@ -1660,6 +1705,35 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       ret_val = parent_pointer->Internal_delete(merge_node->merge_key);
     else {
       printf("Calling merge on the parent with id %ld\n", parent_id);
+              if (seen_remove_delta_node != nullptr) {
+    RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta = dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(seen_remove_delta_node);
+    printf("Redriect the cascading delete to parent's neighbor\n");
+    uint64_t neighbor_id = seen_remove_delta->merged_to_id;
+    uint64_t neighbor_node_size = this->my_tree.Get_size(neighbor_id);
+    if (neighbor_node_size == this->my_tree.min_node_size + 1)
+    {
+      // Tricky case, we consolidate because the node is about to underflow
+      printf("Finish the consolidation");
+      this->my_tree.Consolidate(neighbor_id, true, tw);
+    }
+    // Since there could be consolidating happening, seen_remove_delta is no longer accessible!!!
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* target = this -> my_tree.table.Get(neighbor_id);
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temptemp = target;
+    while (temptemp -> next != nullptr) {
+      temptemp = temptemp -> next;
+    }
+    InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+      true_parent_pointer = dynamic_cast<
+          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+          temptemp);
+    printf("Internal delete on my merged neighbor\n");
+    free(path);
+    auto retval = true_parent_pointer->Internal_delete(merge_node->merge_key);
+    auto root_node = this -> my_tree.table.Get(this->my_tree.root);
+    this -> my_tree.Traverse(root_node);
+    return retval;
+  }
+
       ret_val = parent_pointer->Internal_merge(path, index - 1,
                                                merge_node->merge_key, tw);
     }
@@ -1720,7 +1794,15 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       parent_node_pointer = this->my_tree.table.Get(parent_id);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_pointer =
       parent_node_pointer;
-  while (cur_pointer->next) cur_pointer = cur_pointer->next;
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta_node = nullptr;
+
+  while (cur_pointer->next) {
+    if (cur_pointer -> type == REMOVE) {
+      printf("I've seen a remove delta in Leaf_merge of my parent\n");
+      seen_remove_delta_node = cur_pointer;
+    }
+    cur_pointer = cur_pointer->next;
+  }
 
   InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
       parent_pointer =
@@ -1912,6 +1994,34 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       ret_val = parent_pointer->Internal_delete(merge_node->merge_key);
     } else {
       printf("calling internal merge\n");
+        if (seen_remove_delta_node != nullptr) {
+    RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta = dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(seen_remove_delta_node);
+    printf("Redriect the cascading delete to parent's neighbor\n");
+    uint64_t neighbor_id = seen_remove_delta->merged_to_id;
+    uint64_t neighbor_node_size = this->my_tree.Get_size(neighbor_id);
+    if (neighbor_node_size == this->my_tree.min_node_size + 1)
+    {
+      // Tricky case, we consolidate because the node is about to underflow
+      printf("Finish the consolidation");
+      this->my_tree.Consolidate(neighbor_id, true, tw);
+    }
+    // Since there could be consolidating happening, seen_remove_delta is no longer accessible!!!
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* target = this -> my_tree.table.Get(neighbor_id);
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temptemp = target;
+    while (temptemp -> next != nullptr) {
+      temptemp = temptemp -> next;
+    }
+    InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+      true_parent_pointer = dynamic_cast<
+          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+          temptemp);
+    printf("Internal delete on my merged neighbor\n");
+    free(path);
+    auto retval = true_parent_pointer->Internal_delete(merge_node->merge_key);
+    auto root_node = this -> my_tree.table.Get(this->my_tree.root);
+    this -> my_tree.Traverse(root_node);
+    return retval;
+  }
       ret_val = parent_pointer->Internal_merge(path, index - 1,
                                                merge_node->merge_key, tw);
     }
@@ -2621,7 +2731,15 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_pointer =
         parent_node_pointer;
-    while (cur_pointer->next) cur_pointer = cur_pointer->next;
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta_node = nullptr;
+
+  while (cur_pointer->next) {
+    if (cur_pointer -> type == REMOVE) {
+      printf("I've seen a remove delta in internal_split of my parent\n");
+      seen_remove_delta_node = cur_pointer;
+    }
+    cur_pointer = cur_pointer->next;
+  }
 
     InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
         internal_pointer =
@@ -2629,9 +2747,40 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                                         KeyEqualityChecker>*>(cur_pointer);
 
     uint64_t parent_size = this->my_tree.Get_size(parent_id);
-    if (parent_size + 1 < this->my_tree.max_node_size)
+    if (parent_size + 1 < this->my_tree.max_node_size) {
+      if (seen_remove_delta_node != nullptr) {
+    RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* seen_remove_delta = dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(seen_remove_delta_node);
+    printf("Redriect the cascading split to parent's neighbor\n");
+    uint64_t neighbor_id = seen_remove_delta->merged_to_id;
+    uint64_t neighbor_node_size = this->my_tree.Get_size(neighbor_id);
+    if (neighbor_node_size == this->my_tree.max_node_size - 1)
+    {
+      // Tricky case, we consolidate because the node is about to underflow
+      printf("Finish the consolidation");
+      this->my_tree.Consolidate(neighbor_id, true, tw);
+    }
+    // Since there could be consolidating happening, seen_remove_delta is no longer accessible!!!
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* target = this -> my_tree.table.Get(neighbor_id);
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temptemp = target;
+    while (temptemp -> next != nullptr) {
+      temptemp = temptemp -> next;
+    }
+    InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+      true_parent_pointer = dynamic_cast<
+          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+          temptemp);
+    printf("Internal insert split delta on my merged neighbor\n");
+    free(path);
+    auto retval = true_parent_pointer->Internal_insert(split_key, boundary_key,
+                                                  new_node_id, tw);
+    auto root_node = this -> my_tree.table.Get(this->my_tree.root);
+    this -> my_tree.Traverse(root_node);
+    return retval;
+  }
+
       ret_val = internal_pointer->Internal_insert(split_key, boundary_key,
                                                   new_node_id, tw);
+    }
     else
       ret_val = internal_pointer->Internal_split(path, index - 1, split_key,
                                                  boundary_key, new_node_id, tw);
