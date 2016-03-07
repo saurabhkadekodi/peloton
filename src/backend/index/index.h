@@ -198,6 +198,8 @@ class Index {
   // Get the memory footprint
   virtual size_t GetMemoryFootprint() = 0;
 
+  //virtual void Traverse();
+
  protected:
   Index(IndexMetadata *schema);
 
