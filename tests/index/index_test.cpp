@@ -158,15 +158,15 @@ void InsertTest(index::Index *index, VarlenPool *pool, size_t scale_factor) {
 
     // INSERT
     assert(index->InsertEntry(key0.get(), item0));
-    // assert(index->InsertEntry(key1.get(), item1));
-    // assert(index->InsertEntry(key1.get(), item2));
-    // assert(index->InsertEntry(key1.get(), item1));
-    // assert(index->InsertEntry(key1.get(), item1));
-    // assert(index->InsertEntry(key1.get(), item0));
+    assert(index->InsertEntry(key1.get(), item1));
+    assert(index->InsertEntry(key1.get(), item2));
+    assert(index->InsertEntry(key1.get(), item1));
+    assert(index->InsertEntry(key1.get(), item1));
+    assert(index->InsertEntry(key1.get(), item0));
 
-    // assert(index->InsertEntry(key2.get(), item1));
-    // assert(index->InsertEntry(key3.get(), item1));
-    // assert(index->InsertEntry(key4.get(), item1));
+    assert(index->InsertEntry(key2.get(), item1));
+    assert(index->InsertEntry(key3.get(), item1));
+    assert(index->InsertEntry(key4.get(), item1));
   }
 }
 
@@ -570,7 +570,7 @@ TEST(IndexTests, DeleteTreeSingleThreaded) {
   delete tuple_schema;
 }
 #endif
-//#if 0
+#if 0
 TEST(IndexTests, MultiThreadedInsertTest) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
   std::vector<ItemPointer> locations;
@@ -605,6 +605,6 @@ TEST(IndexTests, MultiThreadedInsertTest) {
 
   delete tuple_schema;
 }
-//#endif
+#endif
 }  // End test namespace
 }  // End peloton namespace
