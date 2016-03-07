@@ -801,7 +801,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   uint64_t location;
   uint64_t node_id = Search(key, path, location, tw);
 
-  LOG_DEBUG("Insert node id %ld", node_id);
+  LOG_DEBUG("Insert node id %ld, key %p, value %p", node_id, &key, &value);
 
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
       table.Get(node_id);
@@ -932,7 +932,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
   uint64_t location;
   uint64_t node_id = Search(key, path, location, tw);
 
-  LOG_DEBUG("Delete on node id %ld", node_id);
+  LOG_DEBUG("Delete on node id %ld, key %p, value %p", node_id, &key, &value);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
       table.Get(node_id);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_pointer =
@@ -1046,8 +1046,8 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
     if (try_consolidation) {
       Consolidate(cur_id, false, tw);
       node_pointer = table.Get(cur_id);
-      LOG_DEBUG("Search is looking at node id %ld with top type %d", cur_id,
-                node_pointer->type);
+      LOG_DEBUG("Search is looking at node id %ld with top type %s", cur_id,
+                node_pointer->Print_type());
       // deleted_keys.clear();
       deleted_indexes.clear();
       index++;
@@ -1103,7 +1103,8 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
             simple_pointer =
                 dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator,
                                        KeyEqualityChecker>*>(node_pointer);
-
+        LOG_DEBUG("INSERT delta is encountered, key: %p, value: %p",
+          &(simple_pointer -> key), &(simple_pointer -> value));
         KeyType cur_key = simple_pointer->key;
         typename vector<pair<KeyType, KeyType>>::reverse_iterator
             updated_keys_iter = updated_keys.rbegin();
@@ -1131,6 +1132,8 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
             simple_pointer =
                 dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator,
                                        KeyEqualityChecker>*>(node_pointer);
+        LOG_DEBUG("DELETE delta is encountered, key: %p, value: %p",
+          &(simple_pointer -> key), &(simple_pointer -> value));
         if (equals(key, simple_pointer->key)) return simple_pointer->id;
         // deleted_keys.push_back(key);
         node_pointer = simple_pointer->next;
@@ -1312,6 +1315,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
   this->my_tree.memory_usage += sizeof(*delta);
   delta->key = key;
   delta->value = value;
+  LOG_DEBUG("Appending an INSERT delta node key %p, value %p", &key, &value);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ =
       (this->my_tree).table.Get(this->id);
   delta->next = node_;
@@ -1331,6 +1335,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
   this->my_tree.memory_usage += sizeof(*delta);
   delta->key = key;
   delta->value = value;
+  LOG_DEBUG("Appending an DELETE delta node key %p, value %p", &key, &value);
   delta->type = DELETE;
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ =
       this->my_tree.table.Get(this->id);
@@ -2290,7 +2295,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
   while (node_pointer != nullptr) {
     // Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
     // simple_pointer = nullptr;
-    LOG_DEBUG("Type encountered is %d", node_pointer->type);
+    LOG_DEBUG("Type encountered is %s", node_pointer->Print_type());
     switch (node_pointer->type) {
       case (INSERT):
         count++;

@@ -2127,6 +2127,30 @@ class Node {
   }
   virtual ~Node() {}
   virtual bool Consolidate() = 0;
+  const char* Print_type() {
+    if (type == INTERNAL_BW_NODE)
+        return "INTERNAL_BW_NODE";
+    else if (type == LEAF_BW_NODE)
+        return "LEAF_BW_NODE";
+    else if (type == INSERT)
+        return "INSERT";
+    else if (type == UPDATE)
+        return "UPDATE";
+    else if (type == DELETE)
+        return "DELETE";
+    else if (type == SPLIT)
+        return "SPLIT";
+    else if (type == MERGE)
+        return "MERGE";
+    else if (type == REMOVE)
+        return "REMOVE";
+    else if (type == SPLIT_INDEX)
+        return "SPLIT_INDEX";
+    else if (type == REMOVE_INDEX)
+        return "REMOVE_INDEX";
+    else
+        return "BAD";
+  }
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
@@ -2143,7 +2167,7 @@ class CASMappingTable {
   uint64_t cur_max_id;
 
  public:
-  CASMappingTable() : cur_max_id(1){};
+  CASMappingTable() : cur_max_id(0){};
   bool Install(
       uint64_t id,
       Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
