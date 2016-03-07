@@ -2698,33 +2698,37 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys(
   reached_end = false;
   //leaf_id = first_right_leaf_id;
   while (!reached_end) {
-    //Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
-        //this->table.Get(leaf_id);
-    //vector<ItemPointer> partial_result = this -> ScanNode(leaf_id);
-    //result.insert(result.end(), partial_result.begin(), partial_result.end());
-    //printf("LEAF ID = %lu | size of result = %lu\n", leaf_id, result.size());
-    // /*
-    //  * Split leaf node is not truncated; so we call Get_size on the leaf node and only iterate
-    //  * through those values starting from the left.
-    //  */
-    // //FIXME: may need to change Get_size approach if we don't consolidate before ScanAllKeys.
-    // LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-    //     leaf_pointer = nullptr;
-    // leaf_pointer = dynamic_cast<
-    //     LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
-    //     node_pointer);
-    // typename multimap<KeyType, ValueType>::iterator iter =
-    //     leaf_pointer->kv_list.begin();
-    // for(uint64_t i=0; i<this->Get_size(leaf_id); i++) {
-    //   ItemPointer location = iter->second;
-    //   iter++;
-    //   result.push_back(location);
-    // }
-    //printf("Siblings: left = %lu, right = %lu\n", leaf_pointer->left_sibling, leaf_pointer->right_sibling);
-    //if (leaf_pointer->right_sibling)
-    //  leaf_id = leaf_pointer->right_sibling;
-    //else
-    //  reached_end = true;
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
+        this->table.Get(leaf_id);
+    LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+        leaf_pointer = ynamic_cast<
+        LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+        node_pointer);
+    vector<ItemPointer> partial_result = this -> ScanNode(leaf_id);
+    result.insert(result.end(), partial_result.begin(), partial_result.end());
+    printf("LEAF ID = %lu | size of result = %lu\n", leaf_id, result.size());
+    /*
+     * Split leaf node is not truncated; so we call Get_size on the leaf node and only iterate
+     * through those values starting from the left.
+     */
+    //FIXME: may need to change Get_size approach if we don't consolidate before ScanAllKeys.
+    LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+        leaf_pointer = nullptr;
+    leaf_pointer = dynamic_cast<
+        LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+        node_pointer);
+    typename multimap<KeyType, ValueType>::iterator iter =
+        leaf_pointer->kv_list.begin();
+    for(uint64_t i=0; i<this->Get_size(leaf_id); i++) {
+      ItemPointer location = iter->second;
+      iter++;
+      result.push_back(location);
+    }
+    printf("Siblings: left = %lu, right = %lu\n", leaf_pointer->left_sibling, leaf_pointer->right_sibling);
+    if (leaf_pointer->right_sibling)
+     leaf_id = leaf_pointer->right_sibling;
+    else
+     reached_end = true;
   }
 
   return result;
