@@ -64,6 +64,8 @@ class BWTreeIndex : public Index {
   // TODO: Implement this
   size_t GetMemoryFootprint();
 
+  void Traverse() { container.Traverse(); }
+
  protected:
   // container
   MapType container;

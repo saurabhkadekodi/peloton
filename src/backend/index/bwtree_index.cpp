@@ -111,7 +111,7 @@ BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanKey(
     const storage::Tuple *key) {
   KeyType index_key;
   index_key.SetFromKey(key);
-  return container.Search_keyWrapper(index_key);
+  return container.SearchKeyWrapper(index_key);
 #if 0
   auto e = container.current_epoch;
   e->join();
@@ -127,8 +127,8 @@ BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanKey(
 
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
-size_t
-BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::GetMemoryFootprint() {
+size_t BWTreeIndex<KeyType, ValueType, KeyComparator,
+                   KeyEqualityChecker>::GetMemoryFootprint() {
   return container.memory_usage;
 }
 
