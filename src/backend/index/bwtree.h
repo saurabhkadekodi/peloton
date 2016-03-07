@@ -2173,6 +2173,7 @@ class CASMappingTable {
       Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
           node_ptr);  // install into mapping table via compare and swap
   NodeType* Get(uint64_t id);
+  vector<uint64_t> GetAllIds();
   uint64_t GetNextId();
 };
 
@@ -2219,7 +2220,7 @@ class BWTree {
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
           tw);  // id is that of the mapping table entry
   bool SplitRoot(KeyType split_key, uint64_t left_pointer,
-                  uint64_t right_pointer);
+                 uint64_t right_pointer);
   // NodeType * CreateNode(uint64_t id, node_type_t t){return nullptr;} // for
   // creating when consolidating
   // bool DeleteNode(uint64_t id){return false;}
@@ -2260,10 +2261,13 @@ class BWTree {
   uint64_t oldest_epoch;
   uint32_t max_epoch_size;
   size_t memory_usage;
-  void Traverse(Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n);
+  //void Traverse(Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n);
+  void Traverse(uint64_t id);
   void Traverse();
   void CleanupTreeRecursively(
       uint64_t id,
+      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
+  void CleanupTreeIteratively(
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
 };
 
@@ -2306,8 +2310,7 @@ class InternalBWNode
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
   bool InternalUpdate(KeyType old_key, KeyType new_key);
   bool Consolidate() { return false; }
-  uint64_t GetChildId(KeyType key,
-                        vector<pair<KeyType, KeyType>> updated_keys);
+  uint64_t GetChildId(KeyType key, vector<pair<KeyType, KeyType>> updated_keys);
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
