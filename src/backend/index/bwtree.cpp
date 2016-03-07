@@ -21,6 +21,8 @@ namespace peloton {
 namespace index {
 using namespace std;  // SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
 
+//size_t global_mem_len = 0;
+
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
 Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Epoch(
@@ -193,6 +195,7 @@ void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                  }
                  LOG_DEBUG("Deleting node %lu of type %s", node->id, node->Print_type());
                  auto next_node = node->next;
+                 this->memory_usage -= sizeof(*node);
                  delete node;
                  node = next_node;
                }
@@ -711,6 +714,8 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SearchKey(
     ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw) {
   vector<ValueType> ret_vector;
   uint64_t* path = (uint64_t*)malloc(tree_height * sizeof(uint64_t));
+  auto mem_len = (tree_height * sizeof(uint64_t));
+  this->memory_usage += mem_len;
   uint64_t location;
   uint64_t node_id = Search(key, path, location, tw);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
@@ -816,6 +821,7 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SearchKey(
 
     node_pointer = node_pointer->next;
   }
+  this->memory_usage -= mem_len;
   free(path);
   return ret_vector;
 }
@@ -850,6 +856,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
     KeyType key, ValueType value,
     ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw) {
   uint64_t* path = (uint64_t*)malloc(sizeof(uint64_t) * tree_height);
+  auto mem_len = (tree_height * sizeof(uint64_t));
+  this->memory_usage += mem_len;
   uint64_t location;
   uint64_t node_id = Search(key, path, location, tw);
 
@@ -864,6 +872,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   typename vector<ValueType>::iterator i;
 
   if (!allow_duplicates && values_for_key.size() != 0) {
+    this->memory_usage -= mem_len;
     free(path);
     return false;
   }
@@ -923,6 +932,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
             LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
             temptemp);
     //LOG_DEBUG("Leaf insert on my merged neighbor");
+    this->memory_usage -= mem_len;
     free(path);
     auto retval = leaf_pointer->LeafInsert(key, value);
     //auto root_node = table.Get(root);
@@ -937,6 +947,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
 
   uint64_t cur_node_size = Get_size(node_id);
   if (cur_node_size < max_node_size) {
+    this->memory_usage -= mem_len;
     free(path);
     //LOG_DEBUG("Leaf Insert");
     auto retval = leaf_pointer->LeafInsert(key, value);
@@ -984,6 +995,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
     KeyType key, ValueType value,
     ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw) {
   uint64_t* path = (uint64_t*)malloc(sizeof(uint64_t) * tree_height);
+  auto mem_len = (tree_height * sizeof(uint64_t));
+  this->memory_usage += mem_len;
   uint64_t location;
   uint64_t node_id = Search(key, path, location, tw);
 
@@ -1005,6 +1018,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
 
   if (!delete_possible) {
     //LOG_DEBUG("Key Value pair does not exist");
+    this->memory_usage -= mem_len;
     free(path);
     return false;
   }
@@ -1045,6 +1059,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
             LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
             temptemp);
     //LOG_DEBUG("Leaf delete on my merged neighbor");
+    this->memory_usage -= mem_len;
     free(path);
     auto retval = leaf_pointer->LeafDelete(key, value);
     //auto root_node = table.Get(root);
@@ -1060,6 +1075,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
   //LOG_DEBUG("Cur node size of %ld is %ld", node_id, cur_node_size);
   if (cur_node_size > min_node_size) {
     //LOG_DEBUG("Leaf delete");
+    this->memory_usage -= mem_len;
     free(path);
     auto retval = leaf_pointer->LeafDelete(key, value);
     //auto root_node = table.Get(root);
@@ -1068,6 +1084,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
   } else {
     //LOG_DEBUG("Leaf merge");
     auto retval = leaf_pointer->LeafMerge(path, location, key, value, tw);
+    this->memory_usage -= mem_len;
     free(path);
     //auto root_node = table.Get(root);
     //Traverse(root_node);
@@ -2507,6 +2524,8 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
   //
 
   uint64_t* path = (uint64_t*)malloc(tree_height * sizeof(uint64_t));
+  auto mem_len = (tree_height * sizeof(uint64_t));
+  this->memory_usage += mem_len;
   uint64_t location;
   uint64_t leaf_id = Search(index_key, path, location, tw);
 
@@ -2672,6 +2691,8 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys(
   index_key.SetFromKey(start_key.get());
 
   uint64_t* path = (uint64_t*)malloc(tree_height * sizeof(uint64_t));
+  auto mem_len = (tree_height * sizeof(uint64_t));
+  this->memory_usage += mem_len;
   uint64_t location;
   uint64_t leaf_id = Search(index_key, path, location, tw);
   //uint64_t start_leaf_id = leaf_id;
@@ -2927,6 +2948,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                 dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                             KeyEqualityChecker>*>(temptemp);
         //LOG_DEBUG("Internal insert split delta on my merged neighbor");
+        this->my_tree.memory_usage -= (this->my_tree.tree_height * sizeof(uint64_t));
         free(path);
         auto retval = true_parent_pointer->InternalInsert(
             split_key, boundary_key, new_node_id, tw);
@@ -2946,6 +2968,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         this->my_tree.SplitRoot(split_key, this->id, new_internal_node_id);
     /* If the split root fails, return failure and let the user decide what to
        do next. This might be the only case in which we return on failure */
+    this->my_tree.memory_usage -= (this->my_tree.tree_height * sizeof(uint64_t));
     free(path);
     return ret_val;
   }
