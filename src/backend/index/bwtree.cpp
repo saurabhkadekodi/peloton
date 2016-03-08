@@ -56,6 +56,7 @@ void Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::performGc() {
   // this->my_tree.memory_usage);
   for (auto it = to_be_cleaned.begin(); it != to_be_cleaned.end(); it++) {
     this->my_tree.memory_usage -= sizeof(*(*it));
+    LOG_DEBUG("@@@@@@@@@ Garbage Collecting Node %lu of type %s @@@@@@@@@@@", (*it)->id, (*it)->Print_type());
     delete *it;
   }
   to_be_cleaned.clear();
@@ -558,6 +559,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
               dynamic_cast<RemoveIndexDeltaNode<
                   KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
                   temp);
+          LOG_DEBUG("remove delta node id = %lu", remove_pointer->node_id);
           auto it = new_base->key_list.rbegin();
           for(; it != new_base->key_list.rend(); it++) {
             if(equals(remove_pointer->deleted_key, it->first)) {
@@ -575,13 +577,15 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
              * Replace the logical pointer associated with the key with
              * whatever is there in RemoveIndexDelta.
              */
-            auto neighbor_it = it++;
-            if(it == new_base->key_list.rend()) {
+            LOG_DEBUG("in correct case of remove index delta");
+            auto neighbor_it = it;
+            neighbor_it++;
+            if(neighbor_it == new_base->key_list.rend()) {
               new_base->leftmost_pointer = remove_pointer->node_id;
             } else {
               neighbor_it->second = remove_pointer->node_id;
             }
-            new_base->key_list.erase(it);
+            new_base->key_list.erase(it->first);
 
             // insert new id with its leftmost key
           }
@@ -1692,7 +1696,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
-    InternalMerge(uint64_t* path, uint64_t index, KeyType merge_key,
+    InternalMerge(uint64_t* path, uint64_t index, KeyType merge_key, uint64_t node_id,
                   ThreadWrapper<KeyType, ValueType, KeyComparator,
                                 KeyEqualityChecker>* tw) {
   // typename multimap<KeyType, uint64_t, KeyComparator>::iterator iter =
@@ -1702,7 +1706,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   if (index == 0) {
     // I am the root
     uint64_t root_size = this->my_tree.Get_size(this->id);
-    if(this->InternalDelete(merge_key, 0)) {
+    if(this->InternalDelete(merge_key, node_id)) {
       return this->my_tree.Consolidate(this->id, true, tw);
     }
     // LOG_DEBUG("Internal merge called for node id %ld", this->id);
@@ -1745,7 +1749,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   }
   // TODO function needs to free path at the end
   // LOG_DEBUG("Earlier size is %ld", this->key_list.size());
-  this->InternalDelete(merge_key, 0);
+  this->InternalDelete(merge_key, node_id);
   bool ret_val = this->my_tree.Consolidate(this->id, true, tw);
   if (!ret_val) {
     return ret_val;
@@ -1986,7 +1990,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     if (index == 0)
       return true;  // I am the root, no need to do anything further
     else if (parent_size - 1 > self_node->my_tree.min_node_size)
-      ret_val = parent_pointer->InternalDelete(merge_node->merge_key, 0);
+      ret_val = parent_pointer->InternalDelete(merge_node->merge_key, neighbour_node_id);
     else {
       // LOG_DEBUG("Calling merge on the parent with id %ld", parent_id);
       if (seen_remove_delta_node != nullptr) {
@@ -2020,14 +2024,14 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         free(path);
 
         auto retval =
-            true_parent_pointer->InternalDelete(merge_node->merge_key, 0);
+            true_parent_pointer->InternalDelete(merge_node->merge_key, neighbour_node_id);
         // auto root_node = this->my_tree.table.Get(this->my_tree.root);
         // this->my_tree.Traverse(root_node);
         return retval;
       }
 
       ret_val = parent_pointer->InternalMerge(path, index - 1,
-                                              merge_node->merge_key, tw);
+                                              merge_node->merge_key,neighbour_node_id,tw);
     }
     return ret_val;
   }
@@ -2103,6 +2107,9 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                                       KeyEqualityChecker>*>(cur_pointer);
   if (direction == UP) {
     // TODO: how to merge up??
+    tw->e->to_be_cleaned.push_back(parent_pointer);
+    return __sync_bool_compare_and_swap(&this->my_tree.root, this->my_tree.root,
+                                          this->id);
   }
 
   // LOG_DEBUG("neighbout node id  for leaf merge of %ld is %ld with direction
@@ -2286,7 +2293,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       return true;  // I am the root, no need to do anything else
     else if (parent_size - 1 > this->my_tree.min_node_size) {
       // LOG_DEBUG("calling internal delete");
-      ret_val = parent_pointer->InternalDelete(merge_node->merge_key, 0);
+      ret_val = parent_pointer->InternalDelete(merge_node->merge_key, neighbour_node_id);
     } else {
       LOG_DEBUG("calling internal merge");
       if (seen_remove_delta_node != nullptr) {
@@ -2319,13 +2326,13 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         // LOG_DEBUG("Internal delete on my merged neighbor");
         free(path);
         auto retval =
-            true_parent_pointer->InternalDelete(merge_node->merge_key, 0);
+            true_parent_pointer->InternalDelete(merge_node->merge_key, neighbour_node_id);
         // auto root_node = this->my_tree.table.Get(this->my_tree.root);
         // this->my_tree.Traverse(root_node);
         return retval;
       }
       ret_val = parent_pointer->InternalMerge(path, index - 1,
-                                              merge_node->merge_key, tw);
+                                              merge_node->merge_key, neighbour_node_id, tw);
     }
     return ret_val;
   }
