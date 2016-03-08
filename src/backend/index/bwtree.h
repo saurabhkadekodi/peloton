@@ -2129,27 +2129,27 @@ class Node {
   virtual bool Consolidate() = 0;
   const char* Print_type() {
     if (type == INTERNAL_BW_NODE)
-        return "INTERNAL_BW_NODE";
+      return "INTERNAL_BW_NODE";
     else if (type == LEAF_BW_NODE)
-        return "LEAF_BW_NODE";
+      return "LEAF_BW_NODE";
     else if (type == INSERT)
-        return "INSERT";
+      return "INSERT";
     else if (type == UPDATE)
-        return "UPDATE";
+      return "UPDATE";
     else if (type == DELETE)
-        return "DELETE";
+      return "DELETE";
     else if (type == SPLIT)
-        return "SPLIT";
+      return "SPLIT";
     else if (type == MERGE)
-        return "MERGE";
+      return "MERGE";
     else if (type == REMOVE)
-        return "REMOVE";
+      return "REMOVE";
     else if (type == SPLIT_INDEX)
-        return "SPLIT_INDEX";
+      return "SPLIT_INDEX";
     else if (type == REMOVE_INDEX)
-        return "REMOVE_INDEX";
+      return "REMOVE_INDEX";
     else
-        return "BAD";
+      return "BAD";
   }
 };
 
@@ -2238,7 +2238,8 @@ class BWTree {
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
   vector<ValueType> SearchKey(
       KeyType key,
-      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw, bool *);
+      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw,
+      bool*);
   vector<ValueType> SearchKeyWrapper(KeyType key);
   vector<ValueType> SearchAllKeys(
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
@@ -2255,18 +2256,18 @@ class BWTree {
                            ThreadWrapper<KeyType, ValueType, KeyComparator,
                                          KeyEqualityChecker>* tw);  // saurabh
   vector<ItemPointer> ScanAllKeysWrapper();
-  vector<ItemPointer> ScanNode(uint64_t node_id,
-                    const vector<Value>& values,
-                    const vector<oid_t>& key_column_ids,
-                    const vector<ExpressionType>& expr_types,
-                    bool range_search);
+  vector<ItemPointer> ScanNode(uint64_t node_id, const vector<Value>& values,
+                               const vector<oid_t>& key_column_ids,
+                               const vector<ExpressionType>& expr_types,
+                               bool range_search);
   vector<ItemPointer> ScanAllKeys(
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
   Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* current_epoch;
   uint64_t oldest_epoch;
   uint32_t max_epoch_size;
   size_t memory_usage;
-  //void Traverse(Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n);
+  // void Traverse(Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+  // n);
   void Traverse(uint64_t id);
   void Traverse();
   void CleanupTreeRecursively(

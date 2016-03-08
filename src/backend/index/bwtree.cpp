@@ -21,7 +21,7 @@ namespace peloton {
 namespace index {
 using namespace std;  // SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
 
-//size_t global_mem_len = 0;
+// size_t global_mem_len = 0;
 
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
@@ -39,7 +39,7 @@ void Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::join() {
    * We call join from every operation that needs to be performed on the tree.
    */
   ref_count.fetch_add(1);
-  //LOG_DEBUG("** joining epoch ref count %lu **", ref_count.load());
+  // LOG_DEBUG("** joining epoch ref count %lu **", ref_count.load());
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
@@ -50,26 +50,27 @@ void Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::performGc() {
    * the nodes. The destructors of those nodes will take care of cleaning up
    * the necessary internal malloc'd objects.
    */
-  //LOG_DEBUG("** garbage collecting epoch: cleaning %lu nodes **",
-            //to_be_cleaned.size());
-  //LOG_DEBUG("** memory usage before cleaning = %lu",
-            //this->my_tree.memory_usage);
+  // LOG_DEBUG("** garbage collecting epoch: cleaning %lu nodes **",
+  // to_be_cleaned.size());
+  // LOG_DEBUG("** memory usage before cleaning = %lu",
+  // this->my_tree.memory_usage);
   for (auto it = to_be_cleaned.begin(); it != to_be_cleaned.end(); it++) {
     this->my_tree.memory_usage -= sizeof(*(*it));
     delete *it;
   }
   to_be_cleaned.clear();
   assert(to_be_cleaned.size() == 0);
-  //LOG_DEBUG("** memory usage after cleaning = %lu", this->my_tree.memory_usage);
+  // LOG_DEBUG("** memory usage after cleaning = %lu",
+  // this->my_tree.memory_usage);
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
 bool Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::leave() {
   ref_count.fetch_sub(1);
-  //LOG_DEBUG("** leaving epoch ref count = %lu **", ref_count.load());
+  // LOG_DEBUG("** leaving epoch ref count = %lu **", ref_count.load());
   if (to_be_cleaned.size() >= my_tree.max_epoch_size) {
-    //LOG_DEBUG("** creating epoch %lu **", generation);
+    // LOG_DEBUG("** creating epoch %lu **", generation);
     auto new_e = new Epoch(this->my_tree, this->generation + 1,
                            this->my_tree.oldest_epoch);
     if (__sync_bool_compare_and_swap(&(my_tree.current_epoch), this, new_e) ==
@@ -77,7 +78,7 @@ bool Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::leave() {
       delete new_e;
     } else {
       this->my_tree.memory_usage += sizeof(*new_e);
-      //LOG_DEBUG("** installed new epoch %lu **", new_e->generation);
+      // LOG_DEBUG("** installed new epoch %lu **", new_e->generation);
     }
   }
   if (__sync_bool_compare_and_swap(&(my_tree.current_epoch), this, this) ==
@@ -125,8 +126,9 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTree(
           this->metadata, *this, root);
   this->memory_usage += sizeof(*root_node);
   table.Install(root, root_node);
-  //LOG_DEBUG("Successfully created a tree of min_node_size %d, max_node_size %d",
-            //min_node_size, max_node_size);
+  // LOG_DEBUG("Successfully created a tree of min_node_size %d, max_node_size
+  // %d",
+  // min_node_size, max_node_size);
   oldest_epoch = 1;
   current_epoch =
       new Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
@@ -143,7 +145,7 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::~BWTree() {
           current_epoch);
   this->memory_usage += sizeof(*tw);
   tw->e->join();
-  //CleanupTreeIteratively(tw);
+  // CleanupTreeIteratively(tw);
   CleanupTreeRecursively(root, tw);
   if (tw->e->leave()) {
     this->memory_usage -= sizeof(*(tw->e));
@@ -165,8 +167,8 @@ void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     CleanupTreeRecursively(uint64_t id,
                            ThreadWrapper<KeyType, ValueType, KeyComparator,
                                          KeyEqualityChecker>* tw) {
-  //LOG_DEBUG("Cleaning up node %lu", id);
-  //Consolidate(id, true, tw);
+  // LOG_DEBUG("Cleaning up node %lu", id);
+  // Consolidate(id, true, tw);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node =
       this->table.Get(id);
   if (node == nullptr) {
@@ -174,7 +176,7 @@ void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   }
   switch (node->type) {
     case (INTERNAL_BW_NODE): {
-      //LOG_DEBUG("point 2");
+      // LOG_DEBUG("point 2");
       InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
           node_ = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                               KeyEqualityChecker>*>(node);
@@ -188,18 +190,18 @@ void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       delete node;
     } break;
     default: {
-               while(node != nullptr) {
-                 if(node->type == INTERNAL_BW_NODE) {
-                   this->table.Install(node->id, node);
-                   CleanupTreeRecursively(node->id, tw);
-                 }
-                 LOG_DEBUG("Deleting node %lu of type %s", node->id, node->Print_type());
-                 auto next_node = node->next;
-                 this->memory_usage -= sizeof(*node);
-                 delete node;
-                 node = next_node;
-               }
-             } break;
+      while (node != nullptr) {
+        if (node->type == INTERNAL_BW_NODE) {
+          this->table.Install(node->id, node);
+          CleanupTreeRecursively(node->id, tw);
+        }
+        LOG_DEBUG("Deleting node %lu of type %s", node->id, node->Print_type());
+        auto next_node = node->next;
+        this->memory_usage -= sizeof(*node);
+        delete node;
+        node = next_node;
+      }
+    } break;
   }
 }
 
@@ -208,23 +210,25 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
 void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     CleanupTreeIteratively(ThreadWrapper<KeyType, ValueType, KeyComparator,
                                          KeyEqualityChecker>* tw) {
-    /*
-     * Make sure you wait before every other thread exits.
-     */
-    while(tw->e->ref_count.load() != 1) {}
-    auto id_vector = this->table.GetAllIds();
-    LOG_DEBUG("Size of id_vector) = %lu", id_vector.size());
-    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* next_node = nullptr;
-    for(auto it = id_vector.begin(); it != id_vector.end(); it++) {
-      Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node =
+  /*
+   * Make sure you wait before every other thread exits.
+   */
+  while (tw->e->ref_count.load() != 1) {
+  }
+  auto id_vector = this->table.GetAllIds();
+  LOG_DEBUG("Size of id_vector) = %lu", id_vector.size());
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* next_node =
+      nullptr;
+  for (auto it = id_vector.begin(); it != id_vector.end(); it++) {
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node =
         this->table.Get(*it);
-      while(node != nullptr) {
-        LOG_DEBUG("Deleting node %lu of type %s", node->id, node->Print_type());
-        next_node = node->next;
-        delete node;
-        node = next_node;
-      }
+    while (node != nullptr) {
+      LOG_DEBUG("Deleting node %lu of type %s", node->id, node->Print_type());
+      next_node = node->next;
+      delete node;
+      node = next_node;
     }
+  }
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
@@ -274,7 +278,8 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
-vector<uint64_t> CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::GetAllIds() {
+vector<uint64_t> CASMappingTable<KeyType, ValueType, KeyComparator,
+                                 KeyEqualityChecker>::GetAllIds() {
   vector<uint64_t> id_vector;
   auto lt = cas_mapping_table.lock_table();
   for (const auto& it : lt) {
@@ -347,8 +352,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
     temp = temp->next;
   }
 
-  //LOG_DEBUG("\t\t**** Consolidate temp id = %lu, type %d", temp->id,
-            //temp->type);
+  // LOG_DEBUG("\t\t**** Consolidate temp id = %lu, type %d", temp->id,
+  // temp->type);
   if (temp->type == LEAF_BW_NODE) {
     LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* base =
         dynamic_cast<
@@ -403,7 +408,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
         }
         tw->e->to_be_cleaned.push_back(temp);
       } else if (temp->type == SPLIT) {
-        //LOG_DEBUG("Bypass the split delta");
+        // LOG_DEBUG("Bypass the split delta");
         tw->e->to_be_cleaned.push_back(temp);
       } else if (temp->type == REMOVE) {
         // This node will be removed, the node it's merging to does GC
@@ -490,8 +495,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
         base = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                            KeyEqualityChecker>*>(temp);
 
-    //LOG_DEBUG("Consolidating the internal node with id %ld", id);
-    //LOG_DEBUG("########## new internal node id = %lu", id);
+    // LOG_DEBUG("Consolidating the internal node with id %ld", id);
+    // LOG_DEBUG("########## new internal node id = %lu", id);
     InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
         new_base =
             new InternalBWNode<KeyType, ValueType, KeyComparator,
@@ -505,8 +510,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
       new_base->key_list.insert(*iter);
     }
     new_base->leftmost_pointer = base->leftmost_pointer;
-    //LOG_DEBUG("Set the leftmost pointer of %ld to %ld", new_base->id,
-              //new_base->leftmost_pointer);
+    // LOG_DEBUG("Set the leftmost pointer of %ld to %ld", new_base->id,
+    // new_base->leftmost_pointer);
     new_base->next = node_;
 
     bool gc_new_base = false;
@@ -519,7 +524,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
               dynamic_cast<SplitIndexDeltaNode<
                   KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
                   temp);
-          //LOG_DEBUG("Adding key to the new base for the internal node");
+          // LOG_DEBUG("Adding key to the new base for the internal node");
           new_base->key_list.insert(pair<KeyType, uint64_t>(
               split_pointer->split_key, split_pointer->new_split_node_id));
           break;
@@ -558,11 +563,12 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
           typename multimap<KeyType, uint64_t, KeyEqualityChecker>::iterator
               it = values.first;
           for (; it != values.second;) {
-            //LOG_DEBUG("This might be strange %d",
-                      //this->equals(it->first, remove_pointer->deleted_key));
-            //LOG_DEBUG("Erasing a value while consolidating an internal node");
+            // LOG_DEBUG("This might be strange %d",
+            // this->equals(it->first, remove_pointer->deleted_key));
+            // LOG_DEBUG("Erasing a value while consolidating an internal
+            // node");
             if (equals(it->first, new_base->key_list.begin()->first)) {
-              //LOG_DEBUG("Also setting its leftmost pointer");
+              // LOG_DEBUG("Also setting its leftmost pointer");
               new_base->leftmost_pointer = new_base->key_list.begin()->second;
             }
             it = new_base->key_list.erase(it);
@@ -643,7 +649,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
     if (!(encounter_merge_delta && base->right_sibling == merge_delta_id))
       new_base->right_sibling = base->right_sibling;
     if (!gc_new_base) {
-      //LOG_DEBUG("######### installing id %lu", id);
+      // LOG_DEBUG("######### installing id %lu", id);
       ret_val = this->table.Install(id, new_base);
     } else {
       // this->freelist.insert(new_base);
@@ -675,11 +681,11 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SplitRoot(
   internal_pointer->right_sibling = 0;
   internal_pointer->chain_len = 0;
   table.Install(new_root_id, internal_pointer);
-  //LOG_DEBUG("Installed the new root");
+  // LOG_DEBUG("Installed the new root");
   // TODO: Need to handle race conditions here
   tree_height++;
   bool ret_val = __sync_bool_compare_and_swap(&root, old_root_id, new_root_id);
-  //LOG_DEBUG("CAS on the tree root retunred %d", ret_val);
+  // LOG_DEBUG("CAS on the tree root retunred %d", ret_val);
   return ret_val;
 }
 
@@ -711,7 +717,8 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
 vector<ValueType>
 BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SearchKey(
     KeyType key,
-    ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw, bool *is_unique_kv = nullptr) {
+    ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw,
+    bool* is_unique_kv = nullptr) {
   vector<ValueType> ret_vector;
   uint64_t* path = (uint64_t*)malloc(tree_height * sizeof(uint64_t));
   auto mem_len = (tree_height * sizeof(uint64_t));
@@ -725,7 +732,7 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SearchKey(
       KeyComparator(this->metadata));
   LOG_DEBUG("Searching for key in node %ld", node_id);
   while (node_pointer) {
-	LOG_DEBUG("Looking at the top with type %s", node_pointer->Print_type());
+    LOG_DEBUG("Looking at the top with type %s", node_pointer->Print_type());
     switch (node_pointer->type) {
       case (INSERT): {
         DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
@@ -738,11 +745,11 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SearchKey(
           pair<typename multimap<KeyType, ValueType>::iterator,
                typename multimap<KeyType, ValueType>::iterator> values =
               deleted_keys.equal_range(simple_pointer->key);
-		  LOG_DEBUG("Found an insert delta node\n");
+          LOG_DEBUG("Found an insert delta node\n");
           typename multimap<KeyType, ValueType, KeyComparator>::iterator iter;
           for (iter = values.first; iter != values.second; iter++) {
             if (value_equals(iter->second, simple_pointer->value)) {
-				LOG_DEBUG("This insert has been deleted\n");
+              LOG_DEBUG("This insert has been deleted\n");
               push = false;
             }
           }
@@ -793,14 +800,15 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SearchKey(
         leaf_pointer = dynamic_cast<
             LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
             node_pointer);
-        LOG_DEBUG("KV LIST in searing leaf node %lu node id %lu",leaf_pointer->kv_list.size(), node_pointer->id);
+        LOG_DEBUG("KV LIST in searing leaf node %lu node id %lu",
+                  leaf_pointer->kv_list.size(), node_pointer->id);
         pair<typename multimap<KeyType, ValueType>::iterator,
              typename multimap<KeyType, ValueType>::iterator> values =
             leaf_pointer->kv_list.equal_range(key);
         typename multimap<KeyType, ValueType, KeyComparator>::iterator iter;
         auto default_value = values.first->second;
         for (iter = values.first; iter != values.second; iter++) {
-		  LOG_DEBUG("Found matching key in leaf");
+          LOG_DEBUG("Found matching key in leaf");
           bool push = true;
 
           pair<typename multimap<KeyType, ValueType>::iterator,
@@ -811,14 +819,15 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SearchKey(
           for (deleted_iter = deleted_values.first;
                deleted_iter != deleted_values.second; deleted_iter++) {
             if (value_equals(deleted_iter->second, iter->second)) {
-			  printf("Which has been deleted");
+              printf("Which has been deleted");
               push = false;
               break;
             }
           }
           if (push) {
-            if((is_unique_kv) && (!value_equals(default_value, iter->second))) {
-                *is_unique_kv = false;
+            if ((is_unique_kv) &&
+                (!value_equals(default_value, iter->second))) {
+              *is_unique_kv = false;
             }
             ret_vector.push_back(iter->second);
           }
@@ -872,7 +881,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   uint64_t location;
   uint64_t node_id = Search(key, path, location, tw);
 
-  //LOG_DEBUG("Insert node id %ld, key %p, value %p", node_id, &key, &value);
+  // LOG_DEBUG("Insert node id %ld, key %p, value %p", node_id, &key, &value);
 
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
       table.Get(node_id);
@@ -882,7 +891,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   vector<ValueType> values_for_key = SearchKey(key, tw);
   typename vector<ValueType>::iterator i;
 
-  LOG_DEBUG("############# key %p | num values = %lu", &key, values_for_key.size());
+  LOG_DEBUG("############# key %p | num values = %lu", &key,
+            values_for_key.size());
   if (!allow_duplicates && values_for_key.size() != 0) {
     this->memory_usage -= mem_len;
     free(path);
@@ -910,7 +920,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
 
   while (cur_pointer->next) {
     if (cur_pointer->type == REMOVE) {
-      //LOG_DEBUG("I've seen a remove delta");
+      // LOG_DEBUG("I've seen a remove delta");
       seen_remove_delta_node = cur_pointer;
     }
     cur_pointer = cur_pointer->next;
@@ -922,12 +932,12 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
             dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator,
                                          KeyEqualityChecker>*>(
                 seen_remove_delta_node);
-    //LOG_DEBUG("Redriect the insert to my neighbor");
+    // LOG_DEBUG("Redriect the insert to my neighbor");
     uint64_t neighbor_id = seen_remove_delta->merged_to_id;
     uint64_t neighbor_node_size = Get_size(neighbor_id);
     if (neighbor_node_size == max_node_size - 1) {
       // Tricky case, we consolidate because the node is about to overflow
-      //LOG_DEBUG("Finish the consolidation");
+      // LOG_DEBUG("Finish the consolidation");
       Consolidate(neighbor_id, true, tw);
     }
     // Since there could be consolidating happening, seen_remove_delta is no
@@ -943,12 +953,12 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
         leaf_pointer = dynamic_cast<
             LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
             temptemp);
-    //LOG_DEBUG("Leaf insert on my merged neighbor");
+    // LOG_DEBUG("Leaf insert on my merged neighbor");
     this->memory_usage -= mem_len;
     free(path);
     auto retval = leaf_pointer->LeafInsert(key, value);
-    //auto root_node = table.Get(root);
-    //Traverse(root_node);
+    // auto root_node = table.Get(root);
+    // Traverse(root_node);
     return retval;
   }
 
@@ -961,16 +971,16 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   if (cur_node_size < max_node_size) {
     this->memory_usage -= mem_len;
     free(path);
-    //LOG_DEBUG("Leaf Insert");
+    // LOG_DEBUG("Leaf Insert");
     auto retval = leaf_pointer->LeafInsert(key, value);
-    //auto root_node = table.Get(root);
-    //Traverse(root_node);
+    // auto root_node = table.Get(root);
+    // Traverse(root_node);
     return retval;
   } else {
-    //LOG_DEBUG("Leaf Split");
+    // LOG_DEBUG("Leaf Split");
     auto retval = leaf_pointer->LeafSplit(path, location, key, value, tw);
-    //auto root_node = table.Get(root);
-    //Traverse(root_node);
+    // auto root_node = table.Get(root);
+    // Traverse(root_node);
     return retval;
   }
   assert(false);
@@ -1002,7 +1012,6 @@ bool BWTree<KeyType, ValueType, KeyComparator,
   return ret_val;
 }
 
-
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
@@ -1014,7 +1023,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
   uint64_t location;
   uint64_t node_id = Search(key, path, location, tw);
 
-  //LOG_DEBUG("Delete on node id %ld, key %p, value %p", node_id, &key, &value);
+  // LOG_DEBUG("Delete on node id %ld, key %p, value %p", node_id, &key,
+  // &value);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
       table.Get(node_id);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_pointer =
@@ -1032,7 +1042,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
   }
 
   if (!delete_possible) {
-    //LOG_DEBUG("Key Value pair does not exist");
+    // LOG_DEBUG("Key Value pair does not exist");
     this->memory_usage -= mem_len;
     free(path);
     return false;
@@ -1041,7 +1051,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
       seen_remove_delta_node = nullptr;
   while (cur_pointer->next) {
     if (cur_pointer->type == REMOVE) {
-      //LOG_DEBUG("I've seen a remove delta");
+      // LOG_DEBUG("I've seen a remove delta");
       seen_remove_delta_node = cur_pointer;
     }
     cur_pointer = cur_pointer->next;
@@ -1052,12 +1062,12 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
             dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator,
                                          KeyEqualityChecker>*>(
                 seen_remove_delta_node);
-    //LOG_DEBUG("Redriect the delete to my neighbor");
+    // LOG_DEBUG("Redriect the delete to my neighbor");
     uint64_t neighbor_id = seen_remove_delta->merged_to_id;
     uint64_t neighbor_node_size = Get_size(neighbor_id);
     if (neighbor_node_size == min_node_size + 1) {
       // Tricky case, we consolidate because the node is about to underflow
-      //LOG_DEBUG("Finish the consolidation");
+      // LOG_DEBUG("Finish the consolidation");
       Consolidate(neighbor_id, true, tw);
     }
     // Since there could be consolidating happening, seen_remove_delta is no
@@ -1073,12 +1083,12 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
         leaf_pointer = dynamic_cast<
             LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
             temptemp);
-    //LOG_DEBUG("Leaf delete on my merged neighbor");
+    // LOG_DEBUG("Leaf delete on my merged neighbor");
     this->memory_usage -= mem_len;
     free(path);
     auto retval = leaf_pointer->LeafDelete(key, value);
-    //auto root_node = table.Get(root);
-    //Traverse(root_node);
+    // auto root_node = table.Get(root);
+    // Traverse(root_node);
     return retval;
   }
 
@@ -1087,23 +1097,23 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
           LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
           cur_pointer);
   uint64_t cur_node_size = Get_size(node_id);
-  //LOG_DEBUG("Cur node size of %ld is %ld", node_id, cur_node_size);
+  // LOG_DEBUG("Cur node size of %ld is %ld", node_id, cur_node_size);
   if ((!is_kv_unique) || (cur_node_size > min_node_size)) {
-    //LOG_DEBUG("Leaf delete");
+    // LOG_DEBUG("Leaf delete");
     this->memory_usage -= mem_len;
     free(path);
     auto retval = leaf_pointer->LeafDelete(key, value);
-    //auto root_node = table.Get(root);
-    //Traverse(root_node);
+    // auto root_node = table.Get(root);
+    // Traverse(root_node);
     return retval;
   } else {
-    if(is_kv_unique) {
-      //LOG_DEBUG("Leaf merge");
+    if (is_kv_unique) {
+      // LOG_DEBUG("Leaf merge");
       auto retval = leaf_pointer->LeafMerge(path, location, key, value, tw);
       this->memory_usage -= mem_len;
       free(path);
-      //auto root_node = table.Get(root);
-      //Traverse(root_node);
+      // auto root_node = table.Get(root);
+      // Traverse(root_node);
       return retval;
     } else {
       return true;
@@ -1137,8 +1147,8 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
     if (try_consolidation) {
       Consolidate(cur_id, try_consolidation, tw);
       node_pointer = table.Get(cur_id);
-      //LOG_DEBUG("Search is looking at node id %ld with top type %s", cur_id,
-        //        node_pointer->Print_type());
+      // LOG_DEBUG("Search is looking at node id %ld with top type %s", cur_id,
+      //        node_pointer->Print_type());
       // deleted_keys.clear();
       deleted_indexes.clear();
       index++;
@@ -1146,14 +1156,15 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
       path[index] = cur_id;
     }
     assert(node_pointer != nullptr);
-    LOG_DEBUG("Inside search type = %s | id = %lu", node_pointer->Print_type(), node_pointer->id);
+    LOG_DEBUG("Inside search type = %s | id = %lu", node_pointer->Print_type(),
+              node_pointer->id);
     switch (node_pointer->type) {
       case (LEAF_BW_NODE): {
         LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
             leaf_pointer =
                 dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
                                         KeyEqualityChecker>*>(node_pointer);
-        if (!need_redirection){
+        if (!need_redirection) {
           return leaf_pointer->id;
         } else {
           // The search to R is thus redirected
@@ -1174,7 +1185,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
         updated_keys.push_back(pair<KeyType, KeyType>(update_pointer->old_key,
                                                       update_pointer->new_key));
         node_pointer = node_pointer->next;
-        //LOG_DEBUG("Hello");
+        // LOG_DEBUG("Hello");
         try_consolidation = false;
         break;
       }
@@ -1185,8 +1196,8 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
                                             KeyEqualityChecker>*>(node_pointer);
         prev_id = cur_id;
         cur_id = internal_pointer->GetChildId(key, updated_keys);
-        //LOG_DEBUG("Internal pointer with id %ld returned child id as %ld",
-                  //internal_pointer->id, cur_id);
+        // LOG_DEBUG("Internal pointer with id %ld returned child id as %ld",
+        // internal_pointer->id, cur_id);
         try_consolidation = true;
         break;
       }
@@ -1195,8 +1206,8 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
             simple_pointer =
                 dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator,
                                        KeyEqualityChecker>*>(node_pointer);
-        //LOG_DEBUG("INSERT delta is encountered, key: %p, value: %p",
-          //&(simple_pointer -> key), &(simple_pointer -> value));
+        // LOG_DEBUG("INSERT delta is encountered, key: %p, value: %p",
+        //&(simple_pointer -> key), &(simple_pointer -> value));
         KeyType cur_key = simple_pointer->key;
         typename vector<pair<KeyType, KeyType>>::reverse_iterator
             updated_keys_iter = updated_keys.rbegin();
@@ -1224,9 +1235,9 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
             simple_pointer =
                 dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator,
                                        KeyEqualityChecker>*>(node_pointer);
-        //LOG_DEBUG("DELETE delta is encountered, key: %p, value: %p",
-          //&(simple_pointer -> key), &(simple_pointer -> value));
-        //if (equals(key, simple_pointer->key)) return simple_pointer->id;
+        // LOG_DEBUG("DELETE delta is encountered, key: %p, value: %p",
+        //&(simple_pointer -> key), &(simple_pointer -> value));
+        // if (equals(key, simple_pointer->key)) return simple_pointer->id;
         // deleted_keys.push_back(key);*/
         node_pointer = simple_pointer->next;
         try_consolidation = false;
@@ -1283,8 +1294,8 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
               node_pointer = merge_pointer->node_to_be_merged;
             }
           } else if (merged_node->right_sibling == node_pointer->id) {
-            //if (!comparator(cur_key, key))
-            if(comparator(key, cur_key))
+            // if (!comparator(cur_key, key))
+            if (comparator(key, cur_key))
               node_pointer = merge_pointer->node_to_be_merged;
             else
               node_pointer = merge_pointer->next;
@@ -1304,8 +1315,8 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
               node_pointer = merge_pointer->node_to_be_merged;
             }
           } else if (merged_node->right_sibling == node_pointer->id) {
-            //if (!comparator(merge_pointer->merge_key, key))
-            if(comparator(key, merge_pointer->merge_key))
+            // if (!comparator(merge_pointer->merge_key, key))
+            if (comparator(key, merge_pointer->merge_key))
               node_pointer = merge_pointer->node_to_be_merged;
             else
               node_pointer = merge_pointer->next;
@@ -1429,7 +1440,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
   this->my_tree.memory_usage += sizeof(*delta);
   delta->key = key;
   delta->value = value;
-  //LOG_DEBUG("Appending an DELETE delta node key %p, value %p", &key, &value);
+  // LOG_DEBUG("Appending an DELETE delta node key %p, value %p", &key, &value);
   delta->type = DELETE;
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ =
       this->my_tree.table.Get(this->id);
@@ -1439,7 +1450,6 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
   bool ret_val = this->my_tree.table.Install(this->id, delta);
   return ret_val;
 }
-
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
@@ -1468,8 +1478,8 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   this->my_tree.memory_usage += sizeof(*new_leaf_node);
   new_leaf_node->left_sibling = this->id;
   new_leaf_node->right_sibling = this->right_sibling;
-  //LOG_DEBUG("Set the right sibling of %ld to %ld", new_node_id,
-            //new_leaf_node->right_sibling);
+  // LOG_DEBUG("Set the right sibling of %ld to %ld", new_node_id,
+  // new_leaf_node->right_sibling);
   if (self_node->right_sibling != 0) {
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
         right_sibling_node = this->my_tree.table.Get(self_node->right_sibling);
@@ -1481,30 +1491,34 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
             LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
             right_sibling_node);
     right_sibling_leaf_node->left_sibling = new_node_id;
-    //LOG_DEBUG("Set the left sibling of %ld to %ld", right_sibling_leaf_node->id,
-              //new_node_id);
+    // LOG_DEBUG("Set the left sibling of %ld to %ld",
+    // right_sibling_leaf_node->id,
+    // new_node_id);
   }
   self_node->right_sibling = new_node_id;
-  //LOG_DEBUG("Set the right sibling of %ld to %ld", self_node->id, new_node_id);
+  // LOG_DEBUG("Set the right sibling of %ld to %ld", self_node->id,
+  // new_node_id);
 
-  //uint64_t count = self_node->kv_list.size();
+  // uint64_t count = self_node->kv_list.size();
   uint64_t count = 1;
   KeyType k = self_node->kv_list.begin()->first;
-  for(auto it=self_node->kv_list.begin(); it!= self_node->kv_list.end(); it++) {
-    if(this->my_tree.equals(it->first, k)) {
+  for (auto it = self_node->kv_list.begin(); it != self_node->kv_list.end();
+       it++) {
+    if (this->my_tree.equals(it->first, k)) {
       continue;
     } else {
       k = it->first;
       count++;
     }
   }
-  LOG_DEBUG("^^^^^^^^^^^^^^^ COUNT WHILE SPLITTING %lu ^^^^^^^^^^^^^^^^^^", count);
+  LOG_DEBUG("^^^^^^^^^^^^^^^ COUNT WHILE SPLITTING %lu ^^^^^^^^^^^^^^^^^^",
+            count);
   typename multimap<KeyType, ValueType, KeyComparator>::iterator key_it =
       self_node->kv_list.begin();
   auto idx = 0;
-  for(; key_it != self_node->kv_list.end();
-      key_it = self_node->kv_list.upper_bound(key_it->first)) {
-    if(idx == (count / 2)) {
+  for (; key_it != self_node->kv_list.end();
+       key_it = self_node->kv_list.upper_bound(key_it->first)) {
+    if (idx == (count / 2)) {
       break;
     }
     idx++;
@@ -1547,9 +1561,9 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   ret_val = this->my_tree.table.Install(this->id, split_node);
   if (!ret_val) return false;
 
-  //LOG_DEBUG("This split node now has size %ld and the new node has size %ld",
-            //this->my_tree.Get_size(this->id),
-            //this->my_tree.Get_size(new_node_id));
+  // LOG_DEBUG("This split node now has size %ld and the new node has size %ld",
+  // this->my_tree.Get_size(this->id),
+  // this->my_tree.Get_size(new_node_id));
 
   if (index > 0) {
     uint64_t parent_id = path[index - 1];
@@ -1562,7 +1576,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 
     while (cur_pointer->next) {
       if (cur_pointer->type == REMOVE) {
-        //LOG_DEBUG("I've seen a remove delta in LeafSplit of my parent");
+        // LOG_DEBUG("I've seen a remove delta in LeafSplit of my parent");
         seen_remove_delta_node = cur_pointer;
       }
       cur_pointer = cur_pointer->next;
@@ -1574,19 +1588,19 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 
     uint64_t parent_size = this->my_tree.Get_size(parent_id);
     if (parent_size + 1 < this->my_tree.max_node_size) {
-      //LOG_DEBUG("Inserting in parent");
+      // LOG_DEBUG("Inserting in parent");
       if (seen_remove_delta_node != nullptr) {
         RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
             seen_remove_delta =
                 dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator,
                                              KeyEqualityChecker>*>(
                     seen_remove_delta_node);
-        //LOG_DEBUG("Redriect the cascading split to parent's neighbor");
+        // LOG_DEBUG("Redriect the cascading split to parent's neighbor");
         uint64_t neighbor_id = seen_remove_delta->merged_to_id;
         uint64_t neighbor_node_size = this->my_tree.Get_size(neighbor_id);
         if (neighbor_node_size == this->my_tree.max_node_size - 1) {
           // Tricky case, we consolidate because the node is about to underflow
-          //LOG_DEBUG("Finish the consolidation");
+          // LOG_DEBUG("Finish the consolidation");
           this->my_tree.Consolidate(neighbor_id, true, tw);
         }
         // Since there could be consolidating happening, seen_remove_delta is no
@@ -1602,25 +1616,25 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
             true_parent_pointer =
                 dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                             KeyEqualityChecker>*>(temptemp);
-        //LOG_DEBUG("Internal insert split delta on my merged neighbor");
+        // LOG_DEBUG("Internal insert split delta on my merged neighbor");
         free(path);
         auto retval = true_parent_pointer->InternalInsert(
             split_key, boundary_key, new_node_id, tw);
-        //auto root_node = this->my_tree.table.Get(this->my_tree.root);
-        //this->my_tree.Traverse(root_node);
+        // auto root_node = this->my_tree.table.Get(this->my_tree.root);
+        // this->my_tree.Traverse(root_node);
         return retval;
       }
 
       ret_val = internal_pointer->InternalInsert(split_key, boundary_key,
                                                  new_node_id, tw);
     } else {
-      //LOG_DEBUG("Splitting parent");
+      // LOG_DEBUG("Splitting parent");
       ret_val = internal_pointer->InternalSplit(path, index - 1, split_key,
                                                 boundary_key, new_node_id, tw);
     }
     return ret_val;
   } else {
-    //LOG_DEBUG("Calling split root");
+    // LOG_DEBUG("Calling split root");
     ret_val = this->my_tree.SplitRoot(split_key, this->id, new_node_id);
     /* If the split root fails, return failure and let the user decide what to
        do next. This might be the only case in which we return on failure */
@@ -1644,7 +1658,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   if (index == 0) {
     // I am the root
     uint64_t root_size = this->my_tree.Get_size(this->id);
-    //LOG_DEBUG("Internal merge called for node id %ld", this->id);
+    // LOG_DEBUG("Internal merge called for node id %ld", this->id);
     if (root_size == 1) {
       // The root is about to be empty, hence need to find the new root
       LOG_DEBUG("Consolidating here to install new root");
@@ -1661,9 +1675,9 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
           this->my_tree.Get_size(self_node->key_list.begin()->second);
       uint64_t left_child_size =
           this->my_tree.Get_size(self_node->leftmost_pointer);
-      //LOG_DEBUG("right id %ld size is %ld, left id %ld size is %ld",
-                //self_node->key_list.begin()->second, right_child_size,
-                //self_node->leftmost_pointer, left_child_size);
+      // LOG_DEBUG("right id %ld size is %ld, left id %ld size is %ld",
+      // self_node->key_list.begin()->second, right_child_size,
+      // self_node->leftmost_pointer, left_child_size);
       uint64_t new_root_id;
       if (left_child_size == 0)
         new_root_id = self_node->key_list.begin()->second;
@@ -1674,7 +1688,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       // assert(false);  // this should never happen
       // this->my_tree.freelist.insert(self_node);
       tw->e->to_be_cleaned.push_back(self_node);
-      //LOG_DEBUG("Setting the new root as %ld", new_root_id);
+      // LOG_DEBUG("Setting the new root as %ld", new_root_id);
       return __sync_bool_compare_and_swap(&this->my_tree.root, self_node->id,
                                           new_root_id);
 
@@ -1682,7 +1696,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     }
   }
   // TODO function needs to free path at the end
-  //LOG_DEBUG("Earlier size is %ld", this->key_list.size());
+  // LOG_DEBUG("Earlier size is %ld", this->key_list.size());
   this->InternalDelete(merge_key);
   bool ret_val = this->my_tree.Consolidate(this->id, true, tw);
   if (!ret_val) {
@@ -1694,7 +1708,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
       self_node = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                               KeyEqualityChecker>*>(self_);
-  //LOG_DEBUG("Later size is %ld", self_node->key_list.size());
+  // LOG_DEBUG("Later size is %ld", self_node->key_list.size());
   // We are the root node
   if (index == 0) return true;
   uint64_t neighbour_node_id = self_node->left_sibling;
@@ -1720,7 +1734,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 
   while (cur_pointer->next) {
     if (cur_pointer->type == REMOVE) {
-      //LOG_DEBUG("I've seen a remove delta in internal_merge of my parent");
+      // LOG_DEBUG("I've seen a remove delta in internal_merge of my parent");
       seen_remove_delta_node = cur_pointer;
     }
     cur_pointer = cur_pointer->next;
@@ -1755,8 +1769,9 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       n_node_pointer =
           dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                       KeyEqualityChecker>*>(n_node_);
-  //LOG_DEBUG("neighbour node id is %ld and it has size %ld", neighbour_node_id,
-            //n_node_pointer->key_list.size());
+  // LOG_DEBUG("neighbour node id is %ld and it has size %ld",
+  // neighbour_node_id,
+  // n_node_pointer->key_list.size());
 
   // (b) posting merge delta
   MergeDeltaNode<KeyType, ValueType, KeyComparator,
@@ -1925,19 +1940,19 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     else if (parent_size - 1 > self_node->my_tree.min_node_size)
       ret_val = parent_pointer->InternalDelete(merge_node->merge_key);
     else {
-      //LOG_DEBUG("Calling merge on the parent with id %ld", parent_id);
+      // LOG_DEBUG("Calling merge on the parent with id %ld", parent_id);
       if (seen_remove_delta_node != nullptr) {
         RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
             seen_remove_delta =
                 dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator,
                                              KeyEqualityChecker>*>(
                     seen_remove_delta_node);
-        //LOG_DEBUG("Redriect the cascading delete to parent's neighbor");
+        // LOG_DEBUG("Redriect the cascading delete to parent's neighbor");
         uint64_t neighbor_id = seen_remove_delta->merged_to_id;
         uint64_t neighbor_node_size = this->my_tree.Get_size(neighbor_id);
         if (neighbor_node_size == this->my_tree.min_node_size + 1) {
           // Tricky case, we consolidate because the node is about to underflow
-          //LOG_DEBUG("Finish the consolidation");
+          // LOG_DEBUG("Finish the consolidation");
           this->my_tree.Consolidate(neighbor_id, true, tw);
         }
         // Since there could be consolidating happening, seen_remove_delta is no
@@ -1953,12 +1968,12 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
             true_parent_pointer =
                 dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                             KeyEqualityChecker>*>(temptemp);
-        //LOG_DEBUG("Internal delete on my merged neighbor");
+        // LOG_DEBUG("Internal delete on my merged neighbor");
         free(path);
         auto retval =
             true_parent_pointer->InternalDelete(merge_node->merge_key);
-        //auto root_node = this->my_tree.table.Get(this->my_tree.root);
-        //this->my_tree.Traverse(root_node);
+        // auto root_node = this->my_tree.table.Get(this->my_tree.root);
+        // this->my_tree.Traverse(root_node);
         return retval;
       }
 
@@ -2013,7 +2028,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     neighbour_node_id = self_node->right_sibling;
     direction = RIGHT;
   } else {
-    //LOG_DEBUG("No neighbout node found");
+    // LOG_DEBUG("No neighbout node found");
     direction = UP;
   }
 
@@ -2027,7 +2042,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 
   while (cur_pointer->next) {
     if (cur_pointer->type == REMOVE) {
-      //LOG_DEBUG("I've seen a remove delta in LeafMerge of my parent");
+      // LOG_DEBUG("I've seen a remove delta in LeafMerge of my parent");
       seen_remove_delta_node = cur_pointer;
     }
     cur_pointer = cur_pointer->next;
@@ -2041,8 +2056,9 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     // TODO: how to merge up??
   }
 
-  //LOG_DEBUG("neighbout node id  for leaf merge of %ld is %ld with direction %d",
-            //self_node->id, neighbour_node_id, direction);
+  // LOG_DEBUG("neighbout node id  for leaf merge of %ld is %ld with direction
+  // %d",
+  // self_node->id, neighbour_node_id, direction);
   // (a) Posting remove node delta
 
   RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
@@ -2050,8 +2066,8 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
           new RemoveDeltaNode<KeyType, ValueType, KeyComparator,
                               KeyEqualityChecker>(this->my_tree, this->id);
   this->my_tree.memory_usage += sizeof(*remove_node);
-  //LOG_DEBUG("Remove node = %p | self_node->id = %lu | self_node = %p",
-            //remove_node, self_node->id, self_node);
+  // LOG_DEBUG("Remove node = %p | self_node->id = %lu | self_node = %p",
+  // remove_node, self_node->id, self_node);
   remove_node->next = self_node;
   remove_node->merged_to_id = neighbour_node_id;
   remove_node->direction = direction;
@@ -2220,17 +2236,17 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     if (index == 0)
       return true;  // I am the root, no need to do anything else
     else if (parent_size - 1 > this->my_tree.min_node_size) {
-      //LOG_DEBUG("calling internal delete");
+      // LOG_DEBUG("calling internal delete");
       ret_val = parent_pointer->InternalDelete(merge_node->merge_key);
     } else {
-     LOG_DEBUG("calling internal merge");
+      LOG_DEBUG("calling internal merge");
       if (seen_remove_delta_node != nullptr) {
         RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
             seen_remove_delta =
                 dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator,
                                              KeyEqualityChecker>*>(
                     seen_remove_delta_node);
-        //LOG_DEBUG("Redriect the cascading delete to parent's neighbor");
+        // LOG_DEBUG("Redriect the cascading delete to parent's neighbor");
         uint64_t neighbor_id = seen_remove_delta->merged_to_id;
         uint64_t neighbor_node_size = this->my_tree.Get_size(neighbor_id);
         if (neighbor_node_size == this->my_tree.min_node_size + 1) {
@@ -2251,12 +2267,12 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
             true_parent_pointer =
                 dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                             KeyEqualityChecker>*>(temptemp);
-        //LOG_DEBUG("Internal delete on my merged neighbor");
+        // LOG_DEBUG("Internal delete on my merged neighbor");
         free(path);
         auto retval =
             true_parent_pointer->InternalDelete(merge_node->merge_key);
-        //auto root_node = this->my_tree.table.Get(this->my_tree.root);
-        //this->my_tree.Traverse(root_node);
+        // auto root_node = this->my_tree.table.Get(this->my_tree.root);
+        // this->my_tree.Traverse(root_node);
         return retval;
       }
       ret_val = parent_pointer->InternalMerge(path, index - 1,
@@ -2381,17 +2397,16 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator,
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
-vector<ItemPointer> BWTree<KeyType, ValueType, KeyComparator,
-                KeyEqualityChecker>::ScanNode(uint64_t node_id,
-                    const vector<Value>& values,
-                    const vector<oid_t>& key_column_ids,
-                    const vector<ExpressionType>& expr_types,
-                    bool range_search) {
+vector<ItemPointer>
+BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanNode(
+    uint64_t node_id, const vector<Value>& values,
+    const vector<oid_t>& key_column_ids,
+    const vector<ExpressionType>& expr_types, bool range_search) {
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
       table.Get(node_id);
   vector<ItemPointer> result;
   bool end = false;
-  //LOG_DEBUG("Get size called for node id %ld", node_id);
+  // LOG_DEBUG("Get size called for node id %ld", node_id);
 
   // switch(node_pointer->type){
   //   case(LEAF_BW_NODE):
@@ -2407,197 +2422,189 @@ vector<ItemPointer> BWTree<KeyType, ValueType, KeyComparator,
   //     break;
   KeyType split_key;
   map<KeyType, vector<ValueType>, KeyComparator> found_kv_pairs(this->metadata);
-  map<KeyType, vector<ValueType>, KeyComparator> deleted_kv_pairs(this->metadata);
+  map<KeyType, vector<ValueType>, KeyComparator> deleted_kv_pairs(
+      this->metadata);
   bool split_delta_encountered = false;
   while (node_pointer != nullptr) {
     // Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
     // simple_pointer = nullptr;
-    //LOG_DEBUG("Type encountered is %s", node_pointer->Print_type());
+    // LOG_DEBUG("Type encountered is %s", node_pointer->Print_type());
     switch (node_pointer->type) {
       case (INSERT): {
-                       DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-                         simple_pointer =
-                         dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator,
-                         KeyEqualityChecker>*>(node_pointer);
-                       /*
-                        * check if we are interested in simple_pointer->key
-                        */
-                       if(range_search == true) {
-                         auto inserted_key = simple_pointer->key;
-                         auto tuple =
-                           inserted_key.GetTupleForComparison(metadata->GetKeySchema());
-                         if (Index::Compare(tuple, key_column_ids, expr_types, values) == false) {
-                           break;
-                         }
-                       }
-                       auto bucket = found_kv_pairs.find(simple_pointer->key);
-                       if(bucket == found_kv_pairs.end())
-                       {
-                         vector<ValueType> new_value;
-                         new_value.push_back(simple_pointer->value);
-                         found_kv_pairs.insert(pair<KeyType, vector<ValueType>>(simple_pointer->key, new_value));
-                       }
-                       else
-                       {
-                         (bucket->second).push_back(simple_pointer->value);
-                       }
+        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            simple_pointer =
+                dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator,
+                                       KeyEqualityChecker>*>(node_pointer);
+        /*
+         * check if we are interested in simple_pointer->key
+         */
+        if (range_search == true) {
+          auto inserted_key = simple_pointer->key;
+          auto tuple =
+              inserted_key.GetTupleForComparison(metadata->GetKeySchema());
+          if (Index::Compare(tuple, key_column_ids, expr_types, values) ==
+              false) {
+            break;
+          }
+        }
+        auto bucket = found_kv_pairs.find(simple_pointer->key);
+        if (bucket == found_kv_pairs.end()) {
+          vector<ValueType> new_value;
+          new_value.push_back(simple_pointer->value);
+          found_kv_pairs.insert(
+              pair<KeyType, vector<ValueType>>(simple_pointer->key, new_value));
+        } else {
+          (bucket->second).push_back(simple_pointer->value);
+        }
 
-                     }
-                     break;
+      } break;
       case (DELETE): {
-                       DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-                         simple_pointer =
-                         dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator,
-                         KeyEqualityChecker>*>(node_pointer);
-                       if(range_search == true) {
-                         auto inserted_key = simple_pointer->key;
-                         auto tuple =
-                           inserted_key.GetTupleForComparison(metadata->GetKeySchema());
-                         if (Index::Compare(tuple, key_column_ids, expr_types, values) == false) {
-                           break;
-                         }
-                       }
+        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            simple_pointer =
+                dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator,
+                                       KeyEqualityChecker>*>(node_pointer);
+        if (range_search == true) {
+          auto inserted_key = simple_pointer->key;
+          auto tuple =
+              inserted_key.GetTupleForComparison(metadata->GetKeySchema());
+          if (Index::Compare(tuple, key_column_ids, expr_types, values) ==
+              false) {
+            break;
+          }
+        }
 
-                       typename map<KeyType, vector<ValueType>, KeyComparator>::iterator bucket = deleted_kv_pairs.find(simple_pointer->key);
-                       if(bucket == deleted_kv_pairs.end())
-                       {
-                         vector<ValueType> new_value;
-                         new_value.push_back(simple_pointer->value);
-                         deleted_kv_pairs.insert(pair<KeyType, vector<ValueType>>(simple_pointer->key, new_value));
-                       }
-                       else
-                       {
-                         (bucket->second).push_back(simple_pointer->value);
-                       }
+        typename map<KeyType, vector<ValueType>, KeyComparator>::iterator
+            bucket = deleted_kv_pairs.find(simple_pointer->key);
+        if (bucket == deleted_kv_pairs.end()) {
+          vector<ValueType> new_value;
+          new_value.push_back(simple_pointer->value);
+          deleted_kv_pairs.insert(
+              pair<KeyType, vector<ValueType>>(simple_pointer->key, new_value));
+        } else {
+          (bucket->second).push_back(simple_pointer->value);
+        }
 
-                     }
-                     break;
-                     // case(UPDATE):
-                     //   break;
+      } break;
+      // case(UPDATE):
+      //   break;
       case (LEAF_BW_NODE): {
-                             LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-                               leaf_pointer =
-                               dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
-                               KeyEqualityChecker>*>(node_pointer);
-                             typename multimap<KeyType, ValueType, KeyComparator>::iterator iter =
-                               leaf_pointer->kv_list.begin();
-                             LOG_DEBUG("Leaf node size = %lu", leaf_pointer->kv_list.size());
-                             for (; iter != leaf_pointer->kv_list.end(); iter++) {
-                               if (split_delta_encountered && !comparator(iter->first, split_key))
-                                 continue;
-                               else if(range_search == true) {
-                                 auto inserted_key = iter->first;
-                                 auto tuple =
-                                   inserted_key.GetTupleForComparison(metadata->GetKeySchema());
-                                 if (Index::Compare(tuple, key_column_ids, expr_types, values) == false) {
-                                   continue;
-                                 }
-                               } else {
-                                 LOG_DEBUG("Adding one to count for the leaf");
+        LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            leaf_pointer =
+                dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
+                                        KeyEqualityChecker>*>(node_pointer);
+        typename multimap<KeyType, ValueType, KeyComparator>::iterator iter =
+            leaf_pointer->kv_list.begin();
+        LOG_DEBUG("Leaf node size = %lu", leaf_pointer->kv_list.size());
+        for (; iter != leaf_pointer->kv_list.end(); iter++) {
+          if (split_delta_encountered && !comparator(iter->first, split_key))
+            continue;
+          else if (range_search == true) {
+            auto inserted_key = iter->first;
+            auto tuple =
+                inserted_key.GetTupleForComparison(metadata->GetKeySchema());
+            if (Index::Compare(tuple, key_column_ids, expr_types, values) ==
+                false) {
+              continue;
+            }
+          } else {
+            LOG_DEBUG("Adding one to count for the leaf");
 
-                                 auto bucket = found_kv_pairs.find(iter->first);
-                                 if(bucket == found_kv_pairs.end())
-                                 {
-                                   vector<ValueType> new_value;
-                                   new_value.push_back(iter->second);
-                                   found_kv_pairs.insert(pair<KeyType, vector<ValueType>>(iter->first, new_value));
-                                 }
-                                 else
-                                 {
-                                   (bucket->second).push_back(iter->second);
-                                 }
-                               }
-                             }
-                             end = true;
-                           } break;
+            auto bucket = found_kv_pairs.find(iter->first);
+            if (bucket == found_kv_pairs.end()) {
+              vector<ValueType> new_value;
+              new_value.push_back(iter->second);
+              found_kv_pairs.insert(
+                  pair<KeyType, vector<ValueType>>(iter->first, new_value));
+            } else {
+              (bucket->second).push_back(iter->second);
+            }
+          }
+        }
+        end = true;
+      } break;
       case (SPLIT): {
-                      split_delta_encountered = true;
-                      SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-                        split_pointer =
-                        dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator,
-                        KeyEqualityChecker>*>(node_pointer);
-                      split_key = split_pointer->split_key;
-                    } break;
+        split_delta_encountered = true;
+        SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            split_pointer =
+                dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator,
+                                            KeyEqualityChecker>*>(node_pointer);
+        split_key = split_pointer->split_key;
+      } break;
       case (MERGE): {
-                      MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-                        mdn =
-                        dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator,
-                        KeyEqualityChecker>*>(node_pointer);
+        MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            mdn =
+                dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator,
+                                            KeyEqualityChecker>*>(node_pointer);
 
-                      Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-                        merged_node_pointer = mdn->node_to_be_merged;
-                      LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-                        to_be_merged =
-                        dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
-                        KeyEqualityChecker>*>(
-                            merged_node_pointer);
+        Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            merged_node_pointer = mdn->node_to_be_merged;
+        LeafBWNode<KeyType, ValueType, KeyComparator,
+                   KeyEqualityChecker>* to_be_merged =
+            dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
+                                    KeyEqualityChecker>*>(merged_node_pointer);
 
-                      typename map<KeyType, ValueType, KeyComparator>::iterator iter =
-                        to_be_merged->kv_list.begin();
-                      for (; iter != to_be_merged->kv_list.end(); iter++) {
-                        if(range_search == true) {
-                          auto inserted_key = iter->first;
-                          auto tuple =
-                            inserted_key.GetTupleForComparison(metadata->GetKeySchema());
-                          if (Index::Compare(tuple, key_column_ids, expr_types, values) == false) {
-                            continue;
-                          }
-                        }
-                        typename map<KeyType, vector<ValueType>>::iterator bucket = found_kv_pairs.find(iter->first);
+        typename map<KeyType, ValueType, KeyComparator>::iterator iter =
+            to_be_merged->kv_list.begin();
+        for (; iter != to_be_merged->kv_list.end(); iter++) {
+          if (range_search == true) {
+            auto inserted_key = iter->first;
+            auto tuple =
+                inserted_key.GetTupleForComparison(metadata->GetKeySchema());
+            if (Index::Compare(tuple, key_column_ids, expr_types, values) ==
+                false) {
+              continue;
+            }
+          }
+          typename map<KeyType, vector<ValueType>>::iterator bucket =
+              found_kv_pairs.find(iter->first);
 
-                        if(bucket == found_kv_pairs.end())
-                        {
-                          vector<ValueType> new_value;
-                          new_value.push_back(iter->second);
-                          found_kv_pairs.insert(pair<KeyType, vector<ValueType>>(iter->first, new_value));
-                        }
-                        else
-                        {
-                          (bucket->second).push_back(iter->second);
-                        }
-                      }
+          if (bucket == found_kv_pairs.end()) {
+            vector<ValueType> new_value;
+            new_value.push_back(iter->second);
+            found_kv_pairs.insert(
+                pair<KeyType, vector<ValueType>>(iter->first, new_value));
+          } else {
+            (bucket->second).push_back(iter->second);
+          }
+        }
 
-
-                    } break;
+      } break;
       case (REMOVE):
-                    // fix this
-                    break;
+        // fix this
+        break;
 
       default:
-                    //LOG_DEBUG("here is where it is");
-                    break;
+        // LOG_DEBUG("here is where it is");
+        break;
     }
-    //LOG_DEBUG("in the while loop");
+    // LOG_DEBUG("in the while loop");
     if (!end)
       node_pointer = node_pointer->next;
     else
       break;
   }
 
-  typename map<KeyType, vector<ValueType>>::iterator diff_iter = deleted_kv_pairs.begin();
-  for(;diff_iter!=deleted_kv_pairs.end();diff_iter++)
-  {
-    typename map<KeyType, vector<ValueType>>::iterator bucket = found_kv_pairs.find(diff_iter->first);
+  typename map<KeyType, vector<ValueType>>::iterator diff_iter =
+      deleted_kv_pairs.begin();
+  for (; diff_iter != deleted_kv_pairs.end(); diff_iter++) {
+    typename map<KeyType, vector<ValueType>>::iterator bucket =
+        found_kv_pairs.find(diff_iter->first);
 
-    if(bucket == found_kv_pairs.end())
-    {
+    if (bucket == found_kv_pairs.end()) {
       assert(false);
-    }
-    else
-    {
-      (bucket->second).erase(diff_iter->second.begin(), diff_iter->second.end());
+    } else {
+      (bucket->second)
+          .erase(diff_iter->second.begin(), diff_iter->second.end());
     }
   }
-	  diff_iter = found_kv_pairs.begin();
-	  for(;diff_iter!=found_kv_pairs.end();diff_iter++)
-	  {
-		if(diff_iter->second.size() > 0) {
+  diff_iter = found_kv_pairs.begin();
+  for (; diff_iter != found_kv_pairs.end(); diff_iter++) {
+    if (diff_iter->second.size() > 0) {
       vector<ItemPointer> partial_result = diff_iter->second;
       result.insert(result.end(), partial_result.begin(), partial_result.end());
     }
-	  }
-	  return result;
-
+  }
+  return result;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
@@ -2609,7 +2616,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
   map<KeyType, int, KeyComparator> key_counter(this->metadata);
   bool end = false;
   int count = 0;
-  //LOG_DEBUG("Get size called for node id %ld", node_id);
+  // LOG_DEBUG("Get size called for node id %ld", node_id);
 
   // switch(node_pointer->type){
   //   case(LEAF_BW_NODE):
@@ -2628,76 +2635,80 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
   while (node_pointer != nullptr) {
     // Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
     // simple_pointer = nullptr;
-    //LOG_DEBUG("Type encountered is %s", node_pointer->Print_type());
+    // LOG_DEBUG("Type encountered is %s", node_pointer->Print_type());
     switch (node_pointer->type) {
       case (INSERT): {
         LOG_DEBUG("\tINSERT id = %lu", node_id);
-        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* delta_node =
-        dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
-        KeyType key = delta_node -> key;
-        typename map<KeyType, int, KeyComparator>::iterator iter = key_counter.find(key);
-        if (iter != key_counter.end())
-        {
-          int count_inc = iter -> second + 1;
-          iter -> second = count_inc;
+        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            delta_node =
+                dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator,
+                                       KeyEqualityChecker>*>(node_pointer);
+        KeyType key = delta_node->key;
+        typename map<KeyType, int, KeyComparator>::iterator iter =
+            key_counter.find(key);
+        if (iter != key_counter.end()) {
+          int count_inc = iter->second + 1;
+          iter->second = count_inc;
         } else {
           key_counter.insert(pair<KeyType, int>(delta_node->key, 1));
         }
-      }  break;
+      } break;
       case (DELETE): {
         LOG_DEBUG("\tDELETE id = %lu", node_id);
-        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* delta_node =
-        dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(node_pointer);
-        KeyType key = delta_node -> key;
-        typename map<KeyType, int, KeyComparator>::iterator iter = key_counter.find(key);
-        if (iter != key_counter.end())
-        {
-          int count_dec = iter -> second - 1;
-          iter -> second = count_dec;
+        DeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            delta_node =
+                dynamic_cast<DeltaNode<KeyType, ValueType, KeyComparator,
+                                       KeyEqualityChecker>*>(node_pointer);
+        KeyType key = delta_node->key;
+        typename map<KeyType, int, KeyComparator>::iterator iter =
+            key_counter.find(key);
+        if (iter != key_counter.end()) {
+          int count_dec = iter->second - 1;
+          iter->second = count_dec;
         } else {
           key_counter.insert(pair<KeyType, int>(key, -1));
         }
-                     } break;
-                     // case(UPDATE):
-                     //   break;
+      } break;
+      // case(UPDATE):
+      //   break;
       case (LEAF_BW_NODE): {
-                             LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-                               leaf_pointer =
-                               dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
-                               KeyEqualityChecker>*>(node_pointer);
-                             typename multimap<KeyType, ValueType, KeyComparator>::iterator iter =
-                               leaf_pointer->kv_list.begin();
-                             //LOG_DEBUG("Leaf node size = %lu", leaf_pointer->kv_list.size());
-                             for (; iter != leaf_pointer->kv_list.end(); iter++) {
-                               if (split_delta_encountered && !comparator(iter->first, split_key))
-                                 continue;
-                               else {
-                                 LOG_DEBUG("Adding one to count for the leaf");
+        LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            leaf_pointer =
+                dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
+                                        KeyEqualityChecker>*>(node_pointer);
+        typename multimap<KeyType, ValueType, KeyComparator>::iterator iter =
+            leaf_pointer->kv_list.begin();
+        // LOG_DEBUG("Leaf node size = %lu", leaf_pointer->kv_list.size());
+        for (; iter != leaf_pointer->kv_list.end(); iter++) {
+          if (split_delta_encountered && !comparator(iter->first, split_key))
+            continue;
+          else {
+            LOG_DEBUG("Adding one to count for the leaf");
 
-                                 KeyType key = iter -> first;
-                                 typename map<KeyType, int, KeyComparator>::iterator iter = key_counter.find(key);
-                                 if (iter != key_counter.end())
-                                 {
-                                   int count_inc = iter -> second + 1;
-                                   iter -> second = count_inc;
-                                 } else {
-                                   key_counter.insert(pair<KeyType, int>(key, 1));
-                                 }
-                               }
-                             }
-                             end = true;
-                           } break;
+            KeyType key = iter->first;
+            typename map<KeyType, int, KeyComparator>::iterator iter =
+                key_counter.find(key);
+            if (iter != key_counter.end()) {
+              int count_inc = iter->second + 1;
+              iter->second = count_inc;
+            } else {
+              key_counter.insert(pair<KeyType, int>(key, 1));
+            }
+          }
+        }
+        end = true;
+      } break;
       case (SPLIT): {
-                      split_delta_encountered = true;
-                      SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-                        split_pointer =
-                        dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator,
-                        KeyEqualityChecker>*>(node_pointer);
-                      split_key = split_pointer->split_key;
-                    } break;
+        split_delta_encountered = true;
+        SplitDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            split_pointer =
+                dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator,
+                                            KeyEqualityChecker>*>(node_pointer);
+        split_key = split_pointer->split_key;
+      } break;
       case (MERGE): {
-                      MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-                        mdn =
+        MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+            mdn =
                 dynamic_cast<MergeDeltaNode<KeyType, ValueType, KeyComparator,
                                             KeyEqualityChecker>*>(node_pointer);
 
@@ -2709,37 +2720,37 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
                   dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
                                           KeyEqualityChecker>*>(
                       merged_node_pointer);
-          //LOG_DEBUG("Adding %ld from the merged node",
-                    //to_be_merged->kv_list.size());
+          // LOG_DEBUG("Adding %ld from the merged node",
+          // to_be_merged->kv_list.size());
 
-                  typename multimap<KeyType, ValueType, KeyComparator>::iterator iter =
-            to_be_merged->kv_list.begin();
-        //LOG_DEBUG("Leaf node size = %lu", leaf_pointer->kv_list.size());
-        for (; iter != to_be_merged->kv_list.end(); iter++) {
-          if (split_delta_encountered && !comparator(iter->first, split_key))
-            continue;
-          else {
-            LOG_DEBUG("Adding one to count for the leaf");
+          typename multimap<KeyType, ValueType, KeyComparator>::iterator iter =
+              to_be_merged->kv_list.begin();
+          // LOG_DEBUG("Leaf node size = %lu", leaf_pointer->kv_list.size());
+          for (; iter != to_be_merged->kv_list.end(); iter++) {
+            if (split_delta_encountered && !comparator(iter->first, split_key))
+              continue;
+            else {
+              LOG_DEBUG("Adding one to count for the leaf");
 
-            KeyType key = iter -> first;
-        typename map<KeyType, int, KeyComparator>::iterator iter = key_counter.find(key);
-        if (iter != key_counter.end())
-        {
-          int count_inc = iter -> second + 1;
-          iter -> second = count_inc;
-        } else {
-          key_counter.insert(pair<KeyType, int>(key, 1));
-        }
+              KeyType key = iter->first;
+              typename map<KeyType, int, KeyComparator>::iterator iter =
+                  key_counter.find(key);
+              if (iter != key_counter.end()) {
+                int count_inc = iter->second + 1;
+                iter->second = count_inc;
+              } else {
+                key_counter.insert(pair<KeyType, int>(key, 1));
+              }
+            }
           }
-        }
         } else {
           InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
               to_be_merged =
                   dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                               KeyEqualityChecker>*>(
                       merged_node_pointer);
-          //LOG_DEBUG("Adding %ld from the merged node",
-                    //to_be_merged->key_list.size());
+          // LOG_DEBUG("Adding %ld from the merged node",
+          // to_be_merged->key_list.size());
           count += to_be_merged->key_list.size();
         }
       } break;
@@ -2763,43 +2774,46 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
           if (split_delta_encountered && !comparator(iter->first, split_key))
             continue;
           else {
-            //LOG_DEBUG("Adding one to self in internal case");
+            // LOG_DEBUG("Adding one to self in internal case");
             count++;
           }
         }
         end = true;
       } break;
       default:
-        //LOG_DEBUG("here is where it is");
+        // LOG_DEBUG("here is where it is");
         break;
     }
-    //LOG_DEBUG("in the while loop");
+    // LOG_DEBUG("in the while loop");
     if (!end)
       node_pointer = node_pointer->next;
     else
       break;
   }
-  //LOG_DEBUG("returning count %lu...", count);
-  if (node_pointer -> type == LEAF_BW_NODE)
-  {
+  // LOG_DEBUG("returning count %lu...", count);
+  if (node_pointer->type == LEAF_BW_NODE) {
     LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-      leaf_pointer =
-      dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
-                                        KeyEqualityChecker>*>(node_pointer);
+        leaf_pointer = dynamic_cast<
+            LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+            node_pointer);
     int key_count = 0;
     typename map<KeyType, int, KeyComparator>::iterator iter =
-            key_counter.begin();
-    for (;iter != key_counter.end();++iter)
-    {
-      if (iter -> second > 0)
-      {
+        key_counter.begin();
+    for (; iter != key_counter.end(); ++iter) {
+      if (iter->second > 0) {
         key_count++;
       }
     }
-    LOG_DEBUG("Get_size returns on the LeafBWNode case key count %d, kv_list size %lu and node id %lu", key_count, leaf_pointer->kv_list.size(), node_id);
+    LOG_DEBUG(
+        "Get_size returns on the LeafBWNode case key count %d, kv_list size "
+        "%lu and node id %lu",
+        key_count, leaf_pointer->kv_list.size(), node_id);
     return key_count;
   }
-  LOG_DEBUG("Get_size returns on the InternalBWNode case key count %d and node id %lu", count, node_id);
+  LOG_DEBUG(
+      "Get_size returns on the InternalBWNode case key count %d and node id "
+      "%lu",
+      count, node_id);
   return count;
 }
 
@@ -2866,7 +2880,7 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
         this->table.Get(leaf_id);
     while (node_pointer->next) node_pointer = node_pointer->next;
-	//TODO: Need to consider all possible deltas in the delta chain
+    // TODO: Need to consider all possible deltas in the delta chain
     LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
         leaf_pointer = nullptr;
     leaf_pointer = dynamic_cast<
@@ -2909,18 +2923,20 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
   }
   reached_end = false;
   while (!reached_end) {
-    vector<ItemPointer> partial_result = this -> ScanNode(leaf_id, values, key_column_ids, expr_types, true);
+    vector<ItemPointer> partial_result =
+        this->ScanNode(leaf_id, values, key_column_ids, expr_types, true);
     result.insert(result.end(), partial_result.begin(), partial_result.end());
     printf("LEAF ID = %lu | size of result = %lu\n", leaf_id, result.size());
 
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
-      this->table.Get(leaf_id);
-    while (node_pointer->next) node_pointer = node_pointer->next; // traversing down to leaf
+        this->table.Get(leaf_id);
+    while (node_pointer->next)
+      node_pointer = node_pointer->next;  // traversing down to leaf
     LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-      leaf_pointer = nullptr;
+        leaf_pointer = nullptr;
     leaf_pointer = dynamic_cast<
-      LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
-          node_pointer);
+        LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+        node_pointer);
     assert(leaf_pointer);
 #if 0
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
@@ -3044,20 +3060,21 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys(
   this->memory_usage += mem_len;
   uint64_t location;
   uint64_t leaf_id = Search(index_key, path, location, tw);
-  //uint64_t start_leaf_id = leaf_id;
-  //uint64_t first_right_leaf_id = 0;
+  // uint64_t start_leaf_id = leaf_id;
+  // uint64_t first_right_leaf_id = 0;
   bool reached_end = false;
   while (!reached_end) {
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
         this->table.Get(leaf_id);
-    while (node_pointer->next) node_pointer = node_pointer->next; // traversing down to leaf
+    while (node_pointer->next)
+      node_pointer = node_pointer->next;  // traversing down to leaf
     LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
         leaf_pointer = nullptr;
     leaf_pointer = dynamic_cast<
         LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
         node_pointer);
-    //if((leaf_id == start_leaf_id) && (leaf_pointer->right_sibling)) {
-      //first_right_leaf_id = leaf_pointer->right_sibling;
+    // if((leaf_id == start_leaf_id) && (leaf_pointer->right_sibling)) {
+    // first_right_leaf_id = leaf_pointer->right_sibling;
     //}
     assert(leaf_pointer);
     if (leaf_pointer->left_sibling != 0)
@@ -3073,9 +3090,10 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys(
    * We should have reached the leftmost leaf node.
    */
   reached_end = false;
-  //leaf_id = first_right_leaf_id;
+  // leaf_id = first_right_leaf_id;
   while (!reached_end) {
-    /*Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
+    /*Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer
+    =
         this->table.Get(leaf_id);
     LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
         leaf_pointer = dynamic_cast<
@@ -3085,13 +3103,15 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys(
     const vector<Value> d_values;
     const vector<oid_t> d_key_column_ids;
     const vector<ExpressionType> d_expr_types;
-    vector<ItemPointer> partial_result = this -> ScanNode(leaf_id, d_values, d_key_column_ids, d_expr_types, false);
+    vector<ItemPointer> partial_result = this->ScanNode(
+        leaf_id, d_values, d_key_column_ids, d_expr_types, false);
     result.insert(result.end(), partial_result.begin(), partial_result.end());
     printf("LEAF ID = %lu | size of result = %lu\n", leaf_id, result.size());
 
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
         this->table.Get(leaf_id);
-    while (node_pointer->next) node_pointer = node_pointer->next; // traversing down to leaf
+    while (node_pointer->next)
+      node_pointer = node_pointer->next;  // traversing down to leaf
     LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
         leaf_pointer = nullptr;
     leaf_pointer = dynamic_cast<
@@ -3100,10 +3120,12 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys(
     assert(leaf_pointer);
 
     /*
-     * Split leaf node is not truncated; so we call Get_size on the leaf node and only iterate
+     * Split leaf node is not truncated; so we call Get_size on the leaf node
+     * and only iterate
      * through those values starting from the left.
      */
-    //FIXME: may need to change Get_size approach if we don't consolidate before ScanAllKeys.
+    // FIXME: may need to change Get_size approach if we don't consolidate
+    // before ScanAllKeys.
     /*
     leaf_pointer = dynamic_cast<
         LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
@@ -3115,13 +3137,14 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys(
       iter++;
       result.push_back(location);
     }*/
-    printf("Siblings: left = %lu, right = %lu\n", leaf_pointer->left_sibling, leaf_pointer->right_sibling);
+    printf("Siblings: left = %lu, right = %lu\n", leaf_pointer->left_sibling,
+           leaf_pointer->right_sibling);
     if (leaf_pointer->right_sibling)
-     leaf_id = leaf_pointer->right_sibling;
+      leaf_id = leaf_pointer->right_sibling;
     else
-     reached_end = true;
+      reached_end = true;
   }
-
+  free(path);
   return result;
 }
 
@@ -3132,7 +3155,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         KeyType split_key, KeyType boundary_key, uint64_t new_node_id,
         ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw
         __attribute__((unused))) {
-  //LOG_DEBUG("Internal insert called on node id %ld", this->id);
+  // LOG_DEBUG("Internal insert called on node id %ld", this->id);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
       this->my_tree.table.Get(this->id);
   SplitIndexDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
@@ -3140,13 +3163,13 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
           new SplitIndexDeltaNode<KeyType, ValueType, KeyComparator,
                                   KeyEqualityChecker>(this->my_tree, this->id);
   this->my_tree.memory_usage += sizeof(*split_index);
-  //LOG_DEBUG("Here is how the new key compares to existing keys");
+  // LOG_DEBUG("Here is how the new key compares to existing keys");
   typename multimap<KeyType, uint64_t, KeyComparator>::iterator iter =
       this->key_list.begin();
   for (; iter != this->key_list.end(); iter++) {
-    //LOG_DEBUG("LOOP %ld %d %d", distance(this->key_list.begin(), iter),
-              //this->my_tree.equals(iter->first, split_key),
-              //this->my_tree.comparator(iter->first, split_key));
+    // LOG_DEBUG("LOOP %ld %d %d", distance(this->key_list.begin(), iter),
+    // this->my_tree.equals(iter->first, split_key),
+    // this->my_tree.comparator(iter->first, split_key));
     fflush(stdout);
   }
   split_index->split_key = split_key;
@@ -3210,14 +3233,14 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   advance(split_iterator, count / 2);
   split_iterator--;
   new_internal_node->leftmost_pointer = split_iterator->second;
-  //LOG_DEBUG("Set the leftmost of the new internal node %ld to be %ld",
-            //new_internal_node->id, new_internal_node->leftmost_pointer);
+  // LOG_DEBUG("Set the leftmost of the new internal node %ld to be %ld",
+  // new_internal_node->id, new_internal_node->leftmost_pointer);
   split_iterator++;
 
-  //LOG_DEBUG("Copying to internal new node");
+  // LOG_DEBUG("Copying to internal new node");
   for (; split_iterator != self_node->key_list.end(); split_iterator++) {
     pair<KeyType, uint64_t> new_entry = *split_iterator;
-    //LOG_DEBUG("Aye ");
+    // LOG_DEBUG("Aye ");
     new_internal_node->key_list.insert(new_entry);
   }
 
@@ -3266,9 +3289,9 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   ret_val = this->my_tree.table.Install(this->id, split_node);
   if (!ret_val) return false;
 
-  //LOG_DEBUG("This split node now has size %ld and the new node has size %ld",
-            //this->my_tree.Get_size(this->id),
-            //this->my_tree.Get_size(new_node_id));
+  // LOG_DEBUG("This split node now has size %ld and the new node has size %ld",
+  // this->my_tree.Get_size(this->id),
+  // this->my_tree.Get_size(new_node_id));
   if (index != 0) {
     uint64_t parent_id = path[index - 1];
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
@@ -3281,7 +3304,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 
     while (cur_pointer->next) {
       if (cur_pointer->type == REMOVE) {
-        //LOG_DEBUG("I've seen a remove delta in internal_split of my parent");
+        // LOG_DEBUG("I've seen a remove delta in internal_split of my parent");
         seen_remove_delta_node = cur_pointer;
       }
       cur_pointer = cur_pointer->next;
@@ -3300,12 +3323,12 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                 dynamic_cast<RemoveDeltaNode<KeyType, ValueType, KeyComparator,
                                              KeyEqualityChecker>*>(
                     seen_remove_delta_node);
-        //LOG_DEBUG("Redriect the cascading split to parent's neighbor");
+        // LOG_DEBUG("Redriect the cascading split to parent's neighbor");
         uint64_t neighbor_id = seen_remove_delta->merged_to_id;
         uint64_t neighbor_node_size = this->my_tree.Get_size(neighbor_id);
         if (neighbor_node_size == this->my_tree.max_node_size - 1) {
           // Tricky case, we consolidate because the node is about to underflow
-          //LOG_DEBUG("Finish the consolidation");
+          // LOG_DEBUG("Finish the consolidation");
           this->my_tree.Consolidate(neighbor_id, true, tw);
         }
         // Since there could be consolidating happening, seen_remove_delta is no
@@ -3321,13 +3344,14 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
             true_parent_pointer =
                 dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                             KeyEqualityChecker>*>(temptemp);
-        //LOG_DEBUG("Internal insert split delta on my merged neighbor");
-        this->my_tree.memory_usage -= (this->my_tree.tree_height * sizeof(uint64_t));
+        // LOG_DEBUG("Internal insert split delta on my merged neighbor");
+        this->my_tree.memory_usage -=
+            (this->my_tree.tree_height * sizeof(uint64_t));
         free(path);
         auto retval = true_parent_pointer->InternalInsert(
             split_key, boundary_key, new_node_id, tw);
-        //auto root_node = this->my_tree.table.Get(this->my_tree.root);
-        //this->my_tree.Traverse(root_node);
+        // auto root_node = this->my_tree.table.Get(this->my_tree.root);
+        // this->my_tree.Traverse(root_node);
         return retval;
       }
 
@@ -3342,7 +3366,8 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         this->my_tree.SplitRoot(split_key, this->id, new_internal_node_id);
     /* If the split root fails, return failure and let the user decide what to
        do next. This might be the only case in which we return on failure */
-    this->my_tree.memory_usage -= (this->my_tree.tree_height * sizeof(uint64_t));
+    this->my_tree.memory_usage -=
+        (this->my_tree.tree_height * sizeof(uint64_t));
     free(path);
     return ret_val;
   }
@@ -3370,7 +3395,7 @@ uint64_t InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     }
   }
   if (iter == key_list.rend()) {
-    //LOG_DEBUG("returning leftmost pointer because no key matched");
+    // LOG_DEBUG("returning leftmost pointer because no key matched");
     return leftmost_pointer;
   }
 
@@ -3410,10 +3435,10 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
   remove_index->next = node_pointer;
   uint32_t chain_len = node_pointer->chain_len;
   remove_index->chain_len = chain_len + 1;
-  //LOG_DEBUG(
-      //"merge key compares with the parent index as %d %d",
-      //this->my_tree.equals(merged_key, this->key_list.begin()->first),
-      //this->my_tree.comparator(merged_key, this->key_list.begin()->first));
+  // LOG_DEBUG(
+  //"merge key compares with the parent index as %d %d",
+  // this->my_tree.equals(merged_key, this->key_list.begin()->first),
+  // this->my_tree.comparator(merged_key, this->key_list.begin()->first));
   if (!this->my_tree.comparator(this->key_list.begin()->first, merged_key)) {
     // TODO should do CAS here
     this->leftmost_pointer = this->key_list.begin()->second;
@@ -3443,21 +3468,22 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator,
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Traverse() {
-  //auto root_node = table.Get(root);
-  //Traverse(root_node);
+  // auto root_node = table.Get(root);
+  // Traverse(root_node);
   Traverse(root);
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
-void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Traverse(uint64_t id) {
+void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Traverse(
+    uint64_t id) {
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node =
       this->table.Get(id);
   if (node == nullptr) {
     return;
   }
 
-  while((node->type != INTERNAL_BW_NODE) && (node->type != LEAF_BW_NODE)) {
+  while ((node->type != INTERNAL_BW_NODE) && (node->type != LEAF_BW_NODE)) {
     node = node->next;
   }
 
@@ -3468,16 +3494,17 @@ void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Traverse(uin
                                               KeyEqualityChecker>*>(node);
       auto it = node_->key_list.begin();
       string key_list_str = "";
-      if(node_->leftmost_pointer) {
+      if (node_->leftmost_pointer) {
         key_list_str = "{" + to_string(node_->leftmost_pointer);
       }
       for (; it != node_->key_list.end(); it++) {
-        //LOG_DEBUG("it->second = %lu", it->second);
+        // LOG_DEBUG("it->second = %lu", it->second);
         key_list_str += ", " + to_string(it->second);
       }
       key_list_str += "}";
-      LOG_DEBUG("INTERNAL_BW_NODE: id = %lu, key_list size = %lu | key_list = %s", node->id,
-          node_->key_list.size(), key_list_str.c_str());
+      LOG_DEBUG(
+          "INTERNAL_BW_NODE: id = %lu, key_list size = %lu | key_list = %s",
+          node->id, node_->key_list.size(), key_list_str.c_str());
       if (node_->leftmost_pointer) {
         Traverse(node_->leftmost_pointer);
       }
@@ -3487,16 +3514,16 @@ void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Traverse(uin
       }
     } break;
     case (LEAF_BW_NODE): {
-                           LeafBWNode<KeyType, ValueType, KeyComparator,
-                             KeyEqualityChecker> *node_ =
-                               dynamic_cast<LeafBWNode<KeyType, ValueType,
-                             KeyComparator, KeyEqualityChecker>*>(node);
-                           LOG_DEBUG("LEAF_BW_NODE: id = %lu, kv_list size = %lu", node->id, node_->kv_list.size());
-                         } break;
+      LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ =
+          dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
+                                  KeyEqualityChecker>*>(node);
+      LOG_DEBUG("LEAF_BW_NODE: id = %lu, kv_list size = %lu", node->id,
+                node_->kv_list.size());
+    } break;
     case (INSERT): {
-                     //LOG_DEBUG("INSERT: id = %lu", node->id);
-                     //Traverse(node->next->id);
-                   } break;
+      // LOG_DEBUG("INSERT: id = %lu", node->id);
+      // Traverse(node->next->id);
+    } break;
     default:
       break;
   }
