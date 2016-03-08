@@ -1663,7 +1663,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
-    InternalMerge(uint64_t* path, uint64_t index, KeyType merge_key,
+    InternalMerge(uint64_t* path, uint64_t index, KeyType merge_key, uint64_t node_id,
                   ThreadWrapper<KeyType, ValueType, KeyComparator,
                                 KeyEqualityChecker>* tw) {
   // typename multimap<KeyType, uint64_t, KeyComparator>::iterator iter =
@@ -1673,7 +1673,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   if (index == 0) {
     // I am the root
     uint64_t root_size = this->my_tree.Get_size(this->id);
-    if(this->InternalDelete(merge_key, 0)) {
+    if(this->InternalDelete(merge_key, node_id)) {
       return this->my_tree.Consolidate(this->id, true, tw);
     }
     // LOG_DEBUG("Internal merge called for node id %ld", this->id);
@@ -1716,7 +1716,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   }
   // TODO function needs to free path at the end
   // LOG_DEBUG("Earlier size is %ld", this->key_list.size());
-  this->InternalDelete(merge_key, 0);
+  this->InternalDelete(merge_key, node_id);
   bool ret_val = this->my_tree.Consolidate(this->id, true, tw);
   if (!ret_val) {
     return ret_val;
@@ -1957,7 +1957,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     if (index == 0)
       return true;  // I am the root, no need to do anything further
     else if (parent_size - 1 > self_node->my_tree.min_node_size)
-      ret_val = parent_pointer->InternalDelete(merge_node->merge_key, 0);
+      ret_val = parent_pointer->InternalDelete(merge_node->merge_key, neighbour_node_id);
     else {
       // LOG_DEBUG("Calling merge on the parent with id %ld", parent_id);
       if (seen_remove_delta_node != nullptr) {
@@ -1991,14 +1991,14 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         free(path);
 
         auto retval =
-            true_parent_pointer->InternalDelete(merge_node->merge_key, 0);
+            true_parent_pointer->InternalDelete(merge_node->merge_key, neighbour_node_id);
         // auto root_node = this->my_tree.table.Get(this->my_tree.root);
         // this->my_tree.Traverse(root_node);
         return retval;
       }
 
       ret_val = parent_pointer->InternalMerge(path, index - 1,
-                                              merge_node->merge_key, tw);
+                                              merge_node->merge_key,neighbour_node_id,tw);
     }
     return ret_val;
   }
@@ -2257,7 +2257,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       return true;  // I am the root, no need to do anything else
     else if (parent_size - 1 > this->my_tree.min_node_size) {
       // LOG_DEBUG("calling internal delete");
-      ret_val = parent_pointer->InternalDelete(merge_node->merge_key, 0);
+      ret_val = parent_pointer->InternalDelete(merge_node->merge_key, neighbour_node_id);
     } else {
       LOG_DEBUG("calling internal merge");
       if (seen_remove_delta_node != nullptr) {
@@ -2290,13 +2290,13 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         // LOG_DEBUG("Internal delete on my merged neighbor");
         free(path);
         auto retval =
-            true_parent_pointer->InternalDelete(merge_node->merge_key, 0);
+            true_parent_pointer->InternalDelete(merge_node->merge_key, neighbour_node_id);
         // auto root_node = this->my_tree.table.Get(this->my_tree.root);
         // this->my_tree.Traverse(root_node);
         return retval;
       }
       ret_val = parent_pointer->InternalMerge(path, index - 1,
-                                              merge_node->merge_key, tw);
+                                              merge_node->merge_key, neighbour_node_id, tw);
     }
     return ret_val;
   }

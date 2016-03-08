@@ -2310,9 +2310,9 @@ class InternalBWNode
       uint64_t* path, uint64_t index, KeyType requested_key,
       KeyType requested_boundary_key, uint64_t new_node_id,
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
-  bool InternalDelete(KeyType merged_key);
+  bool InternalDelete(KeyType merged_key, uint64_t);
   bool InternalMerge(
-      uint64_t* path, uint64_t index, KeyType deleted_key,
+      uint64_t* path, uint64_t index, KeyType deleted_key, uint64_t,
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
   bool InternalUpdate(KeyType old_key, KeyType new_key);
   bool Consolidate() { return false; }
