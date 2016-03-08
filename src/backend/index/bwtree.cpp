@@ -2937,7 +2937,9 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
     leaf_pointer = dynamic_cast<
         LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
         node_pointer);
-    assert(leaf_pointer);
+    if (leaf_pointer == nullptr) {
+      assert(0);
+    }
 #if 0
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_pointer =
         this->table.Get(leaf_id);
@@ -3514,11 +3516,12 @@ void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Traverse(
       }
     } break;
     case (LEAF_BW_NODE): {
-      LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ =
-          dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
-                                  KeyEqualityChecker>*>(node);
-      LOG_DEBUG("LEAF_BW_NODE: id = %lu, kv_list size = %lu", node->id,
-                node_->kv_list.size());
+      /*
+LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ =
+dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
+             KeyEqualityChecker>*>(node);
+LOG_DEBUG("LEAF_BW_NODE: id = %lu, kv_list size = %lu", node->id,
+node_->kv_list.size());*/
     } break;
     case (INSERT): {
       // LOG_DEBUG("INSERT: id = %lu", node->id);
