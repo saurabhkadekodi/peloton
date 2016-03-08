@@ -108,14 +108,15 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTree(
     IndexMetadata* metadata, KeyComparator comparator,
-    KeyEqualityChecker equals, ItemPointerEqualityChecker value_equals,
-    bool allow_duplicates = true, uint32_t policy = 10)
+    KeyEqualityChecker equals, ItemPointerEqualityChecker value_equals, uint32_t policy = 10)
     : metadata(metadata),
       comparator(comparator),
       equals(equals),
       value_equals(value_equals),
-      allow_duplicates(allow_duplicates),
+      allow_duplicates(false),
       policy(policy) {
+  bool unique_keys = metadata -> unique_keys;
+  allow_duplicates = unique_keys;
   min_node_size = 2;
   max_node_size = 4;
   tree_height = 1;

@@ -2207,7 +2207,7 @@ class BWTree {
   // BWTree() {}
   BWTree(IndexMetadata* metadata, KeyComparator comparator,
          KeyEqualityChecker equals, ItemPointerEqualityChecker value_equals,
-         bool allow_duplicates, uint32_t policy);
+         uint32_t policy);
   ~BWTree();
   // BWTree(CASMappingTable<KeyType, ValueType, KeyComparator,
   // KeyEqualityChecker> table) : table(table){}

@@ -25,7 +25,7 @@ BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTreeIndex(
     IndexMetadata *metadata)
     : Index(metadata),
       container(metadata, KeyComparator(metadata), KeyEqualityChecker(metadata),
-                value_equals, true, 10),
+                value_equals, 10),
       equals(metadata),
       comparator(metadata) {
   // Add your implementation here
