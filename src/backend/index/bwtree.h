@@ -2238,7 +2238,7 @@ class BWTree {
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
   vector<ValueType> SearchKey(
       KeyType key,
-      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
+      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw, bool *);
   vector<ValueType> SearchKeyWrapper(KeyType key);
   vector<ValueType> SearchAllKeys(
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
@@ -2255,7 +2255,11 @@ class BWTree {
                            ThreadWrapper<KeyType, ValueType, KeyComparator,
                                          KeyEqualityChecker>* tw);  // saurabh
   vector<ItemPointer> ScanAllKeysWrapper();
-  vector<ItemPointer> ScanNode(uint64_t node_id);
+  vector<ItemPointer> ScanNode(uint64_t node_id,
+                    const vector<Value>& values,
+                    const vector<oid_t>& key_column_ids,
+                    const vector<ExpressionType>& expr_types,
+                    bool range_search);
   vector<ItemPointer> ScanAllKeys(
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
   Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* current_epoch;
