@@ -367,8 +367,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
     this->memory_usage += sizeof(*new_base);
     // This is a workaround, Install will set the next to NULL again by checking
     // the type
-    // new_base->next = node_;
-    new_base->next = nullptr;
+    new_base->next = node_;
+    // new_base->next = nullptr;
 
     typename multimap<KeyType, ValueType, KeyComparator>::iterator base_it =
         base->kv_list.begin();
@@ -469,10 +469,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
             left_sibling_pointer->right_sibling = id;
           }
         }
-
-        // this->freelist.insert(merge_pointer->node_to_be_merged);
+        // GC the removed node
         tw->e->to_be_cleaned.push_back(merge_pointer->node_to_be_merged);
-        // tw->e->to_be_cleaned.push_back(temp);
       } else {
         assert(false);
       }
@@ -888,8 +886,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
       table.Get(node_id);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_pointer =
       node_pointer;
-
-  vector<ValueType> values_for_key = SearchKey(key, tw);
+  bool is_kv_unique = true;
+  vector<ValueType> values_for_key = SearchKey(key, tw, &is_kv_unique);
   typename vector<ValueType>::iterator i;
 
   LOG_DEBUG("############# key %p | num values = %lu", &key,
@@ -969,7 +967,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
           cur_pointer);
 
   uint64_t cur_node_size = Get_size(node_id);
-  if (cur_node_size < max_node_size) {
+
+  if ((!is_kv_unique) || (cur_node_size < max_node_size)) {
     this->memory_usage -= mem_len;
     free(path);
     // LOG_DEBUG("Leaf Insert");
@@ -978,11 +977,15 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
     // Traverse(root_node);
     return retval;
   } else {
-    // LOG_DEBUG("Leaf Split");
-    auto retval = leaf_pointer->LeafSplit(path, location, key, value, tw);
-    // auto root_node = table.Get(root);
-    // Traverse(root_node);
-    return retval;
+    if (is_kv_unique)
+    {
+      // LOG_DEBUG("Leaf Split");
+      auto retval = leaf_pointer->LeafSplit(path, location, key, value, tw);
+      // auto root_node = table.Get(root);
+      this->memory_usage -= mem_len;
+      // Traverse(root_node);
+      return retval;
+    }
   }
   assert(false);
   return false;
@@ -1129,11 +1132,9 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
     KeyType key, uint64_t* path, uint64_t& location,
     ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw) {
   uint64_t cur_id = root;
-  // TODO: why prev_id not used?
-  uint64_t prev_id = cur_id;
+
   bool stop = false;
   bool try_consolidation = true;
-  prev_id = prev_id;  // TODO: this is a work around for not being used
   int merge_dir = -2;
   bool need_redirection = false;
   // multimap<KeyType, ValueType, KeyComparator>
@@ -1195,11 +1196,20 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
             internal_pointer =
                 dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                             KeyEqualityChecker>*>(node_pointer);
-        prev_id = cur_id;
-        cur_id = internal_pointer->GetChildId(key, updated_keys);
-        // LOG_DEBUG("Internal pointer with id %ld returned child id as %ld",
-        // internal_pointer->id, cur_id);
-        try_consolidation = true;
+        if (!need_redirection) {
+          cur_id = internal_pointer->GetChildId(key, updated_keys);
+          // LOG_DEBUG("Internal pointer with id %ld returned child id as %ld",
+          // internal_pointer->id, cur_id);
+          try_consolidation = true;
+        } else {
+          // The search to R is thus redirected
+          if (merge_dir == LEFT) {
+            return internal_pointer->right_sibling;
+          } else if (merge_dir == RIGHT) {
+            return internal_pointer->left_sibling;
+          } else
+            assert(false);
+        }
         break;
       }
       case (INSERT): {
@@ -1217,7 +1227,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
             cur_key = updated_keys_iter->second;
           }
         }
-        if (equals(key, cur_key)) return simple_pointer->id;
+        // if (equals(key, cur_key)) return simple_pointer->id;
         node_pointer = simple_pointer->next;
         try_consolidation = false;
         break;
@@ -1239,7 +1249,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
         // LOG_DEBUG("DELETE delta is encountered, key: %p, value: %p",
         //&(simple_pointer -> key), &(simple_pointer -> value));
         // if (equals(key, simple_pointer->key)) return simple_pointer->id;
-        // deleted_keys.push_back(key);*/
+        // deleted_keys.push_back(key);
         node_pointer = simple_pointer->next;
         try_consolidation = false;
         break;
@@ -1261,7 +1271,6 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
           node_pointer = split_pointer->next;
           try_consolidation = false;
         } else {
-          prev_id = cur_id;
           cur_id = split_pointer->target_node_id;
           try_consolidation = true;
         }
@@ -1348,7 +1357,6 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
           node_pointer = remove_pointer->next;
           try_consolidation = false;
         } else {
-          prev_id = cur_id;
           cur_id = remove_pointer->merged_to_id;
           need_redirection = true;
           try_consolidation = true;
@@ -1383,7 +1391,6 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
             node_pointer = split_index_pointer->next;
             try_consolidation = false;
           } else {
-            prev_id = cur_id;
             cur_id = split_index_pointer->new_split_node_id;
             try_consolidation = true;
           }
