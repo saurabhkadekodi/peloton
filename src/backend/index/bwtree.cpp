@@ -558,6 +558,34 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
               dynamic_cast<RemoveIndexDeltaNode<
                   KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
                   temp);
+          auto it = new_base->key_list.rbegin();
+          for(; it != new_base->key_list.rend(); it++) {
+            if(equals(remove_pointer->deleted_key, it->first)) {
+              break;
+            }
+          }
+          if(it == new_base->key_list.rend()) {
+            /*
+             * We have to replace leftmost pointer with whatever is there in
+             * the RemoveIndexDelta.
+             */
+            new_base->leftmost_pointer = remove_pointer->node_id;
+          } else {
+            /*
+             * Replace the logical pointer associated with the key with
+             * whatever is there in RemoveIndexDelta.
+             */
+            auto neighbor_it = it++;
+            if(it == new_base->key_list.rend()) {
+              new_base->leftmost_pointer = remove_pointer->node_id;
+            } else {
+              neighbor_it->second = remove_pointer->node_id;
+            }
+            new_base->key_list.erase(it);
+
+            // insert new id with its leftmost key
+          }
+#if 0
           // new_base->key_list.erase(remove_pointer->deleted_key);
           pair<typename multimap<KeyType, uint64_t>::iterator,
                typename multimap<KeyType, uint64_t>::iterator> values =
@@ -575,6 +603,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
             }
             it = new_base->key_list.erase(it);
           }
+#endif
           break;
         }
         case (SPLIT):
