@@ -2229,11 +2229,11 @@ class BWTree {
   bool InsertWrapper(KeyType key, ValueType value);
   bool Insert(
       KeyType key, ValueType value,
-      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
+      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw, bool* successful);
   bool DeleteWrapper(KeyType key, ValueType value);
   bool Delete(
       KeyType key, ValueType value,
-      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
+      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw, bool* successful);
   uint64_t Search(
       KeyType key, uint64_t* path, uint64_t& location,
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);

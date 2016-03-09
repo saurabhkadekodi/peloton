@@ -267,7 +267,7 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     return true;
   }
 
-  while (true) {
+  // while (true) {
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* old_node =
         node_ptr->next;
     table_val = nullptr;
@@ -286,16 +286,18 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         table_val->chain_len = 0;
         table_val->next = NULL;
       }
-      break;
+      return true;
+    } else {
+      return false;
     }
-    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_node =
-        nullptr;
-    if (!cas_mapping_table.find(id, cur_node)) {
-      assert(0);
-    }
-    node_ptr->next = cur_node;
-    node_ptr->chain_len = cur_node->chain_len + 1;
-  }
+    // Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_node =
+    //     nullptr;
+    // if (!cas_mapping_table.find(id, cur_node)) {
+    //   assert(0);
+    // }
+    // node_ptr->next = cur_node;
+    // node_ptr->chain_len = cur_node->chain_len + 1;
+  // }
   return true;
 }
 
@@ -974,6 +976,7 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
 bool BWTree<KeyType, ValueType, KeyComparator,
             KeyEqualityChecker>::InsertWrapper(KeyType key,
                                                ValueType location) {
+  auto retval = true;
   do {
     auto tw =
         new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
@@ -981,7 +984,6 @@ bool BWTree<KeyType, ValueType, KeyComparator,
     this->memory_usage += sizeof(*tw);
     // auto e = current_epoch;
     tw->e->join();
-    auto retval = true;
     retval = Insert(key, location, tw, &(tw->op_status));
     if(retval && tw -> op_status) {
       tw->e->concatenate(&(tw->to_be_cleaned));
@@ -1137,6 +1139,8 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
 bool BWTree<KeyType, ValueType, KeyComparator,
             KeyEqualityChecker>::DeleteWrapper(KeyType key,
                                                ValueType location) {
+  bool ret_val = true;
+
   do {
     auto tw =
         new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
@@ -1144,7 +1148,6 @@ bool BWTree<KeyType, ValueType, KeyComparator,
     this->memory_usage += sizeof(*tw);
     // auto e = current_epoch;
     tw->e->join();
-    bool ret_val = true;
     ret_val = Delete(key, location, tw, &(tw->op_status));
     if(ret_val && tw->op_status) {
       tw->e->concatenate(&(tw->to_be_cleaned));
