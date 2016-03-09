@@ -1825,10 +1825,35 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   merge_node->node_to_be_merged = this;
   merge_node->next = n_node_pointer;
   merge_node->chain_len = n_node_pointer->chain_len + 1;
-  if (direction == LEFT)
+  uint64_t the_other_guy_id = 0;
+  if (direction == LEFT) {
     merge_node->merge_key = self_node->key_list.begin()->first;
-  else  // assume either LEFT or RIGHT
+    the_other_guy_id = self_node -> right_sibling;
+    if (the_other_guy_id != 0)
+    {
+      auto the_other_guy_node = this -> my_tree.table.Get(the_other_guy_id);
+      while (the_other_guy_node -> next) the_other_guy_node = the_other_guy_node -> next;
+      InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* the_other_guy =
+      dynamic_cast<
+          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+          the_other_guy_node);
+      the_other_guy -> left_sibling = neighbour_node_id;
+    }
+  }
+  else { // assume either LEFT or RIGHT
     merge_node->merge_key = n_node_pointer->key_list.begin()->first;
+    the_other_guy_id = self_node -> left_sibling;
+    if (the_other_guy_id != 0)
+    {
+      auto the_other_guy_node = this -> my_tree.table.Get(the_other_guy_id);
+      while (the_other_guy_node -> next) the_other_guy_node = the_other_guy_node -> next;
+      InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* the_other_guy =
+      dynamic_cast<
+          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+          the_other_guy_node);
+      the_other_guy -> right_sibling = neighbour_node_id;
+    }
+  }
   ret_val = this->my_tree.table.Install(neighbour_node_id, merge_node);
   if (!ret_val) return false;
 
@@ -2119,11 +2144,35 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   merge_node->node_to_be_merged = self_node;
   merge_node->next = n_node_pointer;
   merge_node->chain_len = n_node_pointer->chain_len + 1;
+
+  uint64_t the_other_guy_id = 0;
   if (direction == LEFT) {
     merge_node->merge_key = self_node->kv_list.begin()->first;
+    the_other_guy_id = self_node -> right_sibling;
+    if (the_other_guy_id != 0)
+    {
+      auto the_other_guy_node = this -> my_tree.table.Get(the_other_guy_id);
+      while (the_other_guy_node -> next) the_other_guy_node = the_other_guy_node -> next;
+      LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* the_other_guy =
+      dynamic_cast<
+          LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+          the_other_guy_node);
+      the_other_guy -> left_sibling = neighbour_node_id;
+    }
   } else  // assume direction is either left or right
   {
     merge_node->merge_key = n_node_pointer->kv_list.begin()->first;
+    the_other_guy_id = self_node -> left_sibling;
+    if (the_other_guy_id != 0)
+    {
+      auto the_other_guy_node = this -> my_tree.table.Get(the_other_guy_id);
+      while (the_other_guy_node -> next) the_other_guy_node = the_other_guy_node -> next;
+      LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* the_other_guy =
+      dynamic_cast<
+          LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+          the_other_guy_node);
+      the_other_guy -> right_sibling = neighbour_node_id;
+    }
   }
   ret_val = this->my_tree.table.Install(neighbour_node_id, merge_node);
   if (!ret_val) return false;
