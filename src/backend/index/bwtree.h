@@ -2267,6 +2267,7 @@ class BWTree {
   uint64_t oldest_epoch;
   uint32_t max_epoch_size;
   size_t memory_usage;
+  std::atomic<uint64_t> map_num;
   // void Traverse(Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
   // n);
   void Traverse(uint64_t id);
@@ -2483,8 +2484,11 @@ class Epoch {
         uint64_t id, uint64_t oldest);
   uint64_t generation;
   uint64_t oldest_epoch;
-  std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>
-      to_be_cleaned;  // FIXME: worry about concurrency in this data structure
+  std::atomic<uint64_t> epoch_size;
+  //cuckoohash_map<uint64_t, std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> *> cleaning_map;
+  map<uint64_t, std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> *> cleaning_map;
+  //std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>
+  //    to_be_cleaned;  // FIXME: worry about concurrency in this data structure
   BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& my_tree;
   std::atomic<uint64_t> ref_count;  // number of threads in epoch
   void join();
@@ -2501,14 +2505,14 @@ class ThreadWrapper {
  public:
   Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* e;
   bool op_status;
-  std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>
-      to_be_cleaned;
+  std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> *to_be_cleaned;
   std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>
       allocation_list;
   ThreadWrapper(
       Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* epoch) {
     this->e = epoch;
     this->op_status = false;
+    this->to_be_cleaned = new std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>;
   }
   ~ThreadWrapper() {
     /*
@@ -2526,6 +2530,7 @@ class ThreadWrapper {
         this->e->my_tree.memory_usage -= sizeof(*(*it));
         delete (*it);
       }
+      delete to_be_cleaned;
     }
   }
 };
