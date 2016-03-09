@@ -222,7 +222,7 @@ void DeleteTest(index::Index *index, VarlenPool *pool, size_t scale_factor) {
     index->DeleteEntry(key4.get(), item1);
   }
 }
-#if 0
+//#if 0
 TEST(IndexTests, DeleteTest) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
   std::vector<ItemPointer> locations;
@@ -233,7 +233,9 @@ TEST(IndexTests, DeleteTest) {
   // Single threaded test
   size_t scale_factor = 1;
   LaunchParallelTest(1, InsertTest, index.get(), pool, scale_factor);
+  printf("####### ABOUT TO DELETE #########\n");
   LaunchParallelTest(1, DeleteTest, index.get(), pool, scale_factor);
+  printf("####### ABOUT TO CHECK #########\n");
 
   // Checks
   std::unique_ptr<storage::Tuple> key0(new storage::Tuple(key_schema, true));
@@ -247,19 +249,24 @@ TEST(IndexTests, DeleteTest) {
   key2->SetValue(0, ValueFactory::GetIntegerValue(100), pool);
   key2->SetValue(1, ValueFactory::GetStringValue("c"), pool);
 
+  printf("####### ABOUT TO SEARCH 0 #########\n");
   locations = index->ScanKey(key0.get());
   EXPECT_EQ(locations.size(), 0);
+  //EXPECT_EQ(locations.size(), 1);
 
+  printf("####### ABOUT TO SEARCH 1 #########\n");
   locations = index->ScanKey(key1.get());
   EXPECT_EQ(locations.size(), 2);
+  //EXPECT_EQ(locations.size(), 5);
 
+  printf("####### ABOUT TO SEARCH 2 #########\n");
   locations = index->ScanKey(key2.get());
   EXPECT_EQ(locations.size(), 1);
   EXPECT_EQ(locations[0].block, item1.block);
 
   delete tuple_schema;
 }
-#endif
+//#endif
 
 /**
  * We need tests for:
@@ -279,7 +286,7 @@ TEST(IndexTests, DeleteTest) {
  * 13. Multithreaded insert test - already given (MultiThreadedInsertTest)
  */
 
-#if 0
+//#if 0
 TEST(IndexTests, BasicTest) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
   std::vector<ItemPointer> locations;
@@ -354,7 +361,7 @@ TEST(IndexTests, SimpleDeleteSingleThreaded) {
 
   delete tuple_schema;
 }
-
+//#endif
 //#if 0
 TEST(IndexTests, InsertIllegalSingleThreaded) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
@@ -366,12 +373,15 @@ TEST(IndexTests, InsertIllegalSingleThreaded) {
   std::unique_ptr<storage::Tuple> key0(new storage::Tuple(key_schema, true));
 
   key0->SetValue(0, ValueFactory::GetIntegerValue(0), pool);
-  key0->SetValue(1, ValueFactory::GetIntegerValue(0), pool);
+  key0->SetValue(1, ValueFactory::GetIntegerValue(10), pool);
 
   // INSERT
   assert(index->InsertEntry(key0.get(), item0) == true);
+  printf("####### Key 0 inserted once\n");
   assert(index->InsertEntry(key0.get(), item0) == true);
+  printf("####### Key 0 inserted twice (duplicate)\n");
   assert(index->InsertEntry(key0.get(), item1) == true);
+  printf("####### Key 0 inserted third time (unique)\n");
   //  assert(index->InsertEntry(key0.get(), item1) == false); // don't know if
   //  this is correct
 
@@ -381,7 +391,7 @@ TEST(IndexTests, InsertIllegalSingleThreaded) {
 
   delete tuple_schema;
 }
-
+//#endif
 //#if 0
 TEST(IndexTests, DeleteIllegalSingleThreaded) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
@@ -453,6 +463,7 @@ TEST(IndexTests, MultipleValuesSingleThreaded) {
   delete tuple_schema;
 }
 //#endif
+//#if 0
 TEST(IndexTests, ScanTreeSingleThreaded) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
   std::vector<ItemPointer> locations;
@@ -489,7 +500,7 @@ TEST(IndexTests, ScanTreeSingleThreaded) {
 
   delete tuple_schema;
 }
-#endif
+//#endif
 //#if 0
 TEST(IndexTests, DeleteTreeSingleThreaded) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
@@ -567,7 +578,7 @@ TEST(IndexTests, DeleteTreeSingleThreaded) {
   delete tuple_schema;
 }
 //#endif
-#if 0
+//#if 0
 TEST(IndexTests, MultiThreadedInsertTest) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
   std::vector<ItemPointer> locations;
@@ -581,9 +592,9 @@ TEST(IndexTests, MultiThreadedInsertTest) {
   LaunchParallelTest(num_threads, InsertTest, index.get(), pool, scale_factor);
 
   locations = index->ScanAllKeys();
-  EXPECT_EQ(locations.size(), 1 * num_threads);
+  EXPECT_EQ(locations.size(), 9 * num_threads);
 
-  /*std::unique_ptr<storage::Tuple> key0(new storage::Tuple(key_schema, true));
+  std::unique_ptr<storage::Tuple> key0(new storage::Tuple(key_schema, true));
   std::unique_ptr<storage::Tuple> keynonce(new storage::Tuple(key_schema,
   true));
 
@@ -598,10 +609,10 @@ TEST(IndexTests, MultiThreadedInsertTest) {
 
   locations = index->ScanKey(key0.get());
   EXPECT_EQ(locations.size(), num_threads);
-  EXPECT_EQ(locations[0].block, item0.block);*/
+  EXPECT_EQ(locations[0].block, item0.block);
 
   delete tuple_schema;
 }
-#endif
+//#endif
 }  // End test namespace
 }  // End peloton namespace
