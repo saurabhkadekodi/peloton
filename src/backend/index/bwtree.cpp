@@ -970,23 +970,32 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
 bool BWTree<KeyType, ValueType, KeyComparator,
             KeyEqualityChecker>::InsertWrapper(KeyType key,
                                                ValueType location) {
-  auto tw =
-      new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-          current_epoch);
-  this->memory_usage += sizeof(*tw);
-  // auto e = current_epoch;
-  tw->e->join();
-  auto retval = Insert(key, location, tw);
-  // if(retval) {
-  tw->op_status = true;
-  tw->e->concatenate(&(tw->to_be_cleaned));
-  //}
-  if (tw->e->leave()) {
-    this->memory_usage -= sizeof(*(tw->e));
-    delete tw->e;
-  }
-  this->memory_usage -= sizeof(*tw);
-  delete tw;
+  do {
+    auto tw =
+        new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
+            current_epoch);
+    this->memory_usage += sizeof(*tw);
+    // auto e = current_epoch;
+    tw->e->join();
+    auto retval = true;
+    retval = Insert(key, location, tw, &(tw->op_status));
+    if(retval && tw -> op_status) {
+      tw->e->concatenate(&(tw->to_be_cleaned));
+      if (tw->e->leave()) {
+        this->memory_usage -= sizeof(*(tw->e));
+        delete tw->e;
+      }
+      this->memory_usage -= sizeof(*tw);
+      delete tw;
+      break;
+    }
+    if (tw->e->leave()) {
+      this->memory_usage -= sizeof(*(tw->e));
+      delete tw->e;
+    }
+    this->memory_usage -= sizeof(*tw);
+    delete tw;
+  } while (retval);
   LOG_DEBUG("\n");
   Traverse(root);
   LOG_DEBUG("\n");
@@ -997,7 +1006,7 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
     KeyType key, ValueType value,
-    ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw) {
+    ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw, bool* successful) {
   uint64_t* path = (uint64_t*)malloc(sizeof(uint64_t) * tree_height);
   auto mem_len = (tree_height * sizeof(uint64_t));
   this->memory_usage += mem_len;
@@ -1019,6 +1028,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   if (!allow_duplicates && values_for_key.size() != 0) {
     this->memory_usage -= mem_len;
     free(path);
+    *successful = false;
     return false;
   }
 
@@ -1077,12 +1087,18 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
             LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
             temptemp);
     // LOG_DEBUG("Leaf insert on my merged neighbor");
-    this->memory_usage -= mem_len;
     free(path);
     auto retval = leaf_pointer->LeafInsert(key, value, tw);
+    if (!retval)
+    {
+      *successful = false;
+    } else {
+      *successful = true;
+      this->memory_usage -= mem_len;
+    }
+    return true;
     // auto root_node = table.Get(root);
     // Traverse(root_node);
-    return retval;
   }
 
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
@@ -1093,22 +1109,34 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   uint64_t cur_node_size = Get_size(node_id);
 
   if ((!is_kv_unique) || (cur_node_size < max_node_size)) {
-    this->memory_usage -= mem_len;
-    free(path);
     // LOG_DEBUG("Leaf Insert");
     auto retval = leaf_pointer->LeafInsert(key, value, tw);
+    if (!retval)
+    {
+      *successful = false;
+    } else {
+      *successful = true;
+      this->memory_usage -= mem_len;
+    }
+    free(path);
+    return true;
     // auto root_node = table.Get(root);
     // Traverse(root_node);
-    return retval;
   } else {
     if (is_kv_unique) {
       //// LOG_DEBUG("Leaf Split");
       auto retval = leaf_pointer->LeafSplit(path, location, key, value, tw);
+      if (!retval)
+      {
+        *successful = false;
+      } else {
+        *successful = true;
+        this->memory_usage -= mem_len;
+      }
       // auto root_node = table.Get(root);
-      this->memory_usage -= mem_len;
       free(path);
       // Traverse(root_node);
-      return retval;
+      return true;
     }
   }
   assert(false);
@@ -1120,23 +1148,32 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
 bool BWTree<KeyType, ValueType, KeyComparator,
             KeyEqualityChecker>::DeleteWrapper(KeyType key,
                                                ValueType location) {
-  auto tw =
-      new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-          current_epoch);
-  this->memory_usage += sizeof(*tw);
-  // auto e = current_epoch;
-  tw->e->join();
-  bool ret_val = Delete(key, location, tw);
-  // if(ret_val) {
-  tw->op_status = true;
-  tw->e->concatenate(&(tw->to_be_cleaned));
-  //}
-  if (tw->e->leave()) {
-    this->memory_usage -= sizeof(*(tw->e));
-    delete tw->e;
-  }
-  this->memory_usage -= sizeof(*tw);
-  delete tw;
+  do {
+    auto tw =
+        new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
+            current_epoch);
+    this->memory_usage += sizeof(*tw);
+    // auto e = current_epoch;
+    tw->e->join();
+    bool ret_val = true;
+    ret_val = Delete(key, location, tw, &(tw->op_status));
+    if(ret_val && tw->op_status) {
+      tw->e->concatenate(&(tw->to_be_cleaned));
+      if (tw->e->leave()) {
+        this->memory_usage -= sizeof(*(tw->e));
+        delete tw->e;
+      }
+      this->memory_usage -= sizeof(*tw);
+      delete tw;
+      break;
+    }
+    if (tw->e->leave()) {
+      this->memory_usage -= sizeof(*(tw->e));
+      delete tw->e;
+    }
+    this->memory_usage -= sizeof(*tw);
+    delete tw;
+  } while (ret_val);
   LOG_DEBUG("\n");
   LOG_DEBUG("Root is now %lu", root);
   Traverse(root);
@@ -1557,8 +1594,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   delta->next = node_;
   uint32_t chain_len = node_->chain_len;
   delta->chain_len = chain_len + 1;
-  bool result = this->my_tree.table.Install(this->id, delta);
-  return result;
+  return this->my_tree.table.Install(this->id, delta);
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
@@ -1581,8 +1617,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   delta->next = node_;
   uint32_t chain_len = node_->chain_len;
   delta->chain_len = chain_len + 1;
-  bool ret_val = this->my_tree.table.Install(this->id, delta);
-  return ret_val;
+  return this->my_tree.table.Install(this->id, delta);
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
@@ -1591,8 +1626,16 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     LeafSplit(uint64_t* path, uint64_t index, KeyType key, ValueType value,
               ThreadWrapper<KeyType, ValueType, KeyComparator,
                             KeyEqualityChecker>* tw) {
-  this->LeafInsert(key, value, tw);
+  bool insert_res = this->LeafInsert(key, value, tw);
+  if (!insert_res)
+  {
+    return insert_res;
+  }
   bool result = this->my_tree.Consolidate(this->id, true, tw);
+  if (!result)
+  {
+    return result;
+  }
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* self_ =
       this->my_tree.table.Get(this->id);
 
@@ -1600,9 +1643,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       dynamic_cast<
           LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
           self_);
-  if (!result) {
-    return result;
-  }
+
   uint64_t new_node_id = this->my_tree.table.GetNextId();
   // This is Q
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
@@ -1693,10 +1734,17 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   uint32_t chain_len = self_node->chain_len;
   bool ret_val = true;
   ret_val = this->my_tree.table.Install(new_node_id, new_leaf_node);
-  if (!ret_val) return false;
+  if (!ret_val) {
+    this->my_tree.memory_usage -= sizeof(*new_leaf_node);
+    return false;
+  }
   split_node->chain_len = chain_len + 1;
   ret_val = this->my_tree.table.Install(this->id, split_node);
-  if (!ret_val) return false;
+  if (!ret_val) {
+    this->my_tree.memory_usage -= sizeof(*new_leaf_node);
+    this->my_tree.memory_usage -= sizeof(*split_node);
+    return false;
+  }
 
   // LOG_DEBUG("This split node now has size %ld and the new node has size %ld",
   // this->my_tree.Get_size(this->id),
@@ -1756,6 +1804,12 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         // LOG_DEBUG("Internal insert split delta on my merged neighbor");
         auto retval = true_parent_pointer->InternalInsert(
             split_key, boundary_key, new_node_id, tw);
+        if (!retval)
+        {
+          this->my_tree.memory_usage -= sizeof(*new_leaf_node);
+          this->my_tree.memory_usage -= sizeof(*split_node);
+          return false;
+        }
         // auto root_node = this->my_tree.table.Get(this->my_tree.root);
         // this->my_tree.Traverse(root_node);
         return retval;
@@ -1763,18 +1817,36 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 
       ret_val = internal_pointer->InternalInsert(split_key, boundary_key,
                                                  new_node_id, tw);
+      if (!ret_val)
+      {
+        this->my_tree.memory_usage -= sizeof(*new_leaf_node);
+        this->my_tree.memory_usage -= sizeof(*split_node);
+        return false;
+      }
     } else {
       // LOG_DEBUG("Splitting parent");
       ret_val = internal_pointer->InternalSplit(path, index - 1, split_key,
                                                 boundary_key, new_node_id, tw);
+      if (!ret_val)
+      {
+        this->my_tree.memory_usage -= sizeof(*new_leaf_node);
+        this->my_tree.memory_usage -= sizeof(*split_node);
+        return false;
+      }
     }
-    return ret_val;
+    return true;
   } else {
     // LOG_DEBUG("Calling split root");
     ret_val = this->my_tree.SplitRoot(split_key, this->id, new_node_id, tw);
     /* If the split root fails, return failure and let the user decide what to
        do next. This might be the only case in which we return on failure */
-    return ret_val;
+    if (!ret_val)
+    {
+      this->my_tree.memory_usage -= sizeof(*new_leaf_node);
+      this->my_tree.memory_usage -= sizeof(*split_node);
+      return false;
+    }
+    return true;
   }
   assert(false);
   return false;
