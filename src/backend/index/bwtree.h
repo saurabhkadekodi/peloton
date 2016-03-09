@@ -2219,8 +2219,9 @@ class BWTree {
       uint64_t id, bool force,
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
           tw);  // id is that of the mapping table entry
-  bool SplitRoot(KeyType split_key, uint64_t left_pointer,
-                 uint64_t right_pointer);
+  bool SplitRoot(
+      KeyType split_key, uint64_t left_pointer, uint64_t right_pointer,
+      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
   // NodeType * CreateNode(uint64_t id, node_type_t t){return nullptr;} // for
   // creating when consolidating
   // bool DeleteNode(uint64_t id){return false;}
@@ -2310,11 +2311,15 @@ class InternalBWNode
       uint64_t* path, uint64_t index, KeyType requested_key,
       KeyType requested_boundary_key, uint64_t new_node_id,
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
-  bool InternalDelete(KeyType merged_key, uint64_t);
+  bool InternalDelete(
+      KeyType merged_key, uint64_t,
+      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
   bool InternalMerge(
       uint64_t* path, uint64_t index, KeyType deleted_key, uint64_t,
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
-  bool InternalUpdate(KeyType old_key, KeyType new_key);
+  bool InternalUpdate(
+      KeyType old_key, KeyType new_key,
+      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
   bool Consolidate() { return false; }
   uint64_t GetChildId(KeyType key, vector<pair<KeyType, KeyType>> updated_keys);
 };
@@ -2342,8 +2347,12 @@ class LeafBWNode
         low(0),
         high(0) {}
   ~LeafBWNode() {}
-  bool LeafInsert(KeyType key, ValueType value);
-  bool LeafDelete(KeyType key, ValueType value);
+  bool LeafInsert(
+      KeyType key, ValueType value,
+      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
+  bool LeafDelete(
+      KeyType key, ValueType value,
+      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
   bool LeafSplit(
       uint64_t* path, uint64_t index, KeyType key, ValueType value,
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
@@ -2478,6 +2487,9 @@ class Epoch {
   std::atomic<uint64_t> ref_count;  // number of threads in epoch
   void join();
   bool leave();
+  void concatenate(
+      std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>*
+          thread_gc_list);
   void performGc();
 };
 
@@ -2486,9 +2498,33 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
 class ThreadWrapper {
  public:
   Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* e;
+  bool op_status;
+  std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>
+      to_be_cleaned;
+  std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>
+      allocation_list;
   ThreadWrapper(
       Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* epoch) {
     this->e = epoch;
+    this->op_status = false;
+  }
+  ~ThreadWrapper() {
+    /*
+     * In this function, we cleanup the thread wrapper's state based on
+     * whether the operation was successful or it failed.
+     */
+    if (!op_status) {
+      /*
+       * This is the list that contains allocation made by the thread
+       * but the overall operation failed. Since we have to retry, we must
+       * delete all objects allocated by this thread and start afresh.
+       */
+      for (auto it = allocation_list.begin(); it != allocation_list.end();
+           it++) {
+        this->e->my_tree.memory_usage -= sizeof(*(*it));
+        delete (*it);
+      }
+    }
   }
 };
 
