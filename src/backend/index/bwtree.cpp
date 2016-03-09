@@ -1038,7 +1038,7 @@ bool BWTree<KeyType, ValueType, KeyComparator,
     tw->e->join();
     retval = Insert(key, location, tw, &(tw->op_status));
     if(retval && tw -> op_status) {
-      tw->e->concatenate(&(tw->to_be_cleaned));
+      tw->e->concatenate(tw->to_be_cleaned);
       if (tw->e->leave()) {
         this->memory_usage -= sizeof(*(tw->e));
         delete tw->e;
@@ -1202,7 +1202,7 @@ bool BWTree<KeyType, ValueType, KeyComparator,
     tw->e->join();
     ret_val = Delete(key, location, tw, &(tw->op_status));
     if(ret_val && tw->op_status) {
-      tw->e->concatenate(&(tw->to_be_cleaned));
+      tw->e->concatenate(tw->to_be_cleaned);
       if (tw->e->leave()) {
         this->memory_usage -= sizeof(*(tw->e));
         delete tw->e;
