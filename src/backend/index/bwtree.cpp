@@ -1902,19 +1902,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       auto the_other_guy_node = this -> my_tree.table.Get(the_other_guy_id);
       while (the_other_guy_node -> next) the_other_guy_node = the_other_guy_node -> next;
       InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* the_other_guy =
-      dynamic_cast<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* merge_node_ = merge_node;
-    while(merge_node) {
-      auto clean_temp = merge_node_->next;
-      tw->e->to_be_cleaned.push_back(merge_node_);
-      merge_node_ = clean_temp;
-    }
-
-    while(n_node_) {
-      auto clean_temp = n_node_->next;
-      tw->e->to_be_cleaned.push_back(n_node_);
-      n_node_ = clean_temp;
-    }
-          InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+      dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
           the_other_guy_node);
       the_other_guy -> right_sibling = neighbour_node_id;
     }
@@ -2188,30 +2176,6 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                                           this->id);
   }
 
-  // LOG_DEBUG("neighbout node id  for leaf merge of %ld is %ld with direction
-  // %d",
-  // self_node->id, neighbour_node_id, direction);
-  // (a) Posting remove node delta
-
-  RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-      remove_node =
-          new RemoveDeltaNode<KeyType, ValueType, KeyComparator,
-                              KeyEqualityChecker>(this->my_tree, this->id);
-  this->my_tree.memory_usage += sizeof(*remove_node);
-  // LOG_DEBUG("Remove node = %p | self_node->id = %lu | self_node = %p",
-  // remove_node, self_node->id, self_node);
-  remove_node->next = self_node;
-  remove_node->merged_to_id = neighbour_node_id;
-  remove_node->direction = direction;
-  uint32_t chain_len = self_node->chain_len;
-  remove_node->chain_len = chain_len + 1;
-  ret_val = this->my_tree.table.Install(this->id, remove_node);
-  if (!ret_val) {
-    tw->e->to_be_cleaned.push_back(remove_node);
-    return false;
-  }
-
-  // (b) posting merge delta
   this->my_tree.Consolidate(neighbour_node_id, true, tw);
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n_node_ =
       this->my_tree.table.Get(neighbour_node_id);
@@ -2219,51 +2183,6 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       n_node_pointer = dynamic_cast<
           LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
           n_node_);
-  MergeDeltaNode<KeyType, ValueType, KeyComparator,
-                 KeyEqualityChecker>* merge_node =
-      new MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-          this->my_tree, neighbour_node_id);
-  this->my_tree.memory_usage += sizeof(*merge_node);
-  merge_node->node_to_be_merged = self_node;
-  merge_node->next = n_node_pointer;
-  merge_node->chain_len = n_node_pointer->chain_len + 1;
-
-  uint64_t the_other_guy_id = 0;
-  if (direction == LEFT) {
-    merge_node->merge_key = self_node->kv_list.begin()->first;
-    the_other_guy_id = self_node -> right_sibling;
-    if (the_other_guy_id != 0)
-    {
-      LOG_DEBUG("OTHER GUY ID %lu", the_other_guy_id);
-      auto the_other_guy_node = this -> my_tree.table.Get(the_other_guy_id);
-      while (the_other_guy_node -> next) the_other_guy_node = the_other_guy_node -> next;
-      LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* the_other_guy =
-      dynamic_cast<
-          LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
-          the_other_guy_node);
-      the_other_guy -> left_sibling = neighbour_node_id;
-    }
-  } else  // assume direction is either left or right
-  {
-    merge_node->merge_key = n_node_pointer->kv_list.begin()->first;
-    the_other_guy_id = self_node -> left_sibling;
-    if (the_other_guy_id != 0)
-    {
-      LOG_DEBUG("OTHER GUY ID %lu in ELSE", the_other_guy_id);
-      auto the_other_guy_node = this -> my_tree.table.Get(the_other_guy_id);
-      while (the_other_guy_node -> next) the_other_guy_node = the_other_guy_node -> next;
-      LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* the_other_guy =
-      dynamic_cast<
-          LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
-          the_other_guy_node);
-      the_other_guy -> right_sibling = neighbour_node_id;
-    }
-  }
-  ret_val = this->my_tree.table.Install(neighbour_node_id, merge_node);
-  if (!ret_val) {
-    tw->e->to_be_cleaned.push_back(merge_node);
-    return false;
-  }
 
   // (c) posting index term delete delta or key redistribution
   uint64_t total_count = this->my_tree.Get_size(this->id) +
@@ -2376,7 +2295,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     // TODO: Free two old leaf nodes
 
     ret_val =
-        parent_pointer->InternalUpdate(merge_node->merge_key, new_split_key);
+        parent_pointer->InternalUpdate(self_node->kv_list.begin()->first, new_split_key);
 
     // ret_val = parent_pointer->InternalDelete(merge_node->merge_key);
     if (!ret_val) return false;
@@ -2389,7 +2308,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     //    parent_pointer->InternalInsert(new_split_key, sp_boundary_key, R->id,
     //    tw);
     // if (!ret_val) return false;
-    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* merge_node_ = merge_node;
+    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* merge_node_ = self_node;
     while(merge_node_) {
       auto clean_temp = merge_node_->next;
       tw->e->to_be_cleaned.push_back(merge_node_);
@@ -2402,7 +2321,80 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       n_node_ = clean_temp;
     }
     return ret_val;
-  } else {  // Normal merge case
+  }
+
+  // LOG_DEBUG("neighbout node id  for leaf merge of %ld is %ld with direction
+  // %d",
+  // self_node->id, neighbour_node_id, direction);
+  // (a) Posting remove node delta
+
+  RemoveDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+      remove_node =
+          new RemoveDeltaNode<KeyType, ValueType, KeyComparator,
+                              KeyEqualityChecker>(this->my_tree, this->id);
+  this->my_tree.memory_usage += sizeof(*remove_node);
+  // LOG_DEBUG("Remove node = %p | self_node->id = %lu | self_node = %p",
+  // remove_node, self_node->id, self_node);
+  remove_node->next = self_node;
+  remove_node->merged_to_id = neighbour_node_id;
+  remove_node->direction = direction;
+  uint32_t chain_len = self_node->chain_len;
+  remove_node->chain_len = chain_len + 1;
+  ret_val = this->my_tree.table.Install(this->id, remove_node);
+  if (!ret_val) {
+    tw->e->to_be_cleaned.push_back(remove_node);
+    return false;
+  }
+
+  // (b) posting merge delta
+
+  MergeDeltaNode<KeyType, ValueType, KeyComparator,
+                 KeyEqualityChecker>* merge_node =
+      new MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
+          this->my_tree, neighbour_node_id);
+  this->my_tree.memory_usage += sizeof(*merge_node);
+  merge_node->node_to_be_merged = self_node;
+  merge_node->next = n_node_pointer;
+  merge_node->chain_len = n_node_pointer->chain_len + 1;
+
+  uint64_t the_other_guy_id = 0;
+  if (direction == LEFT) {
+    merge_node->merge_key = self_node->kv_list.begin()->first;
+    the_other_guy_id = self_node -> right_sibling;
+    if (the_other_guy_id != 0)
+    {
+      LOG_DEBUG("OTHER GUY ID %lu", the_other_guy_id);
+      auto the_other_guy_node = this -> my_tree.table.Get(the_other_guy_id);
+      while (the_other_guy_node -> next) the_other_guy_node = the_other_guy_node -> next;
+      LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* the_other_guy =
+      dynamic_cast<
+          LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+          the_other_guy_node);
+      the_other_guy -> left_sibling = neighbour_node_id;
+    }
+  } else  // assume direction is either left or right
+  {
+    merge_node->merge_key = n_node_pointer->kv_list.begin()->first;
+    the_other_guy_id = self_node -> left_sibling;
+    if (the_other_guy_id != 0)
+    {
+      LOG_DEBUG("OTHER GUY ID %lu in ELSE", the_other_guy_id);
+      auto the_other_guy_node = this -> my_tree.table.Get(the_other_guy_id);
+      while (the_other_guy_node -> next) the_other_guy_node = the_other_guy_node -> next;
+      LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* the_other_guy =
+      dynamic_cast<
+          LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+          the_other_guy_node);
+      the_other_guy -> right_sibling = neighbour_node_id;
+    }
+  }
+  ret_val = this->my_tree.table.Install(neighbour_node_id, merge_node);
+  if (!ret_val) {
+    tw->e->to_be_cleaned.push_back(merge_node);
+    return false;
+  }
+
+
     // We don't need to actually move kv list items because we have put the
     // merge and delta nodes which are equivalent
     // to a logical merge
@@ -2463,9 +2455,9 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                                               merge_node->merge_key, neighbour_node_id, tw);
     }
     return ret_val;
-  }
+  // }
 
-  return false;
+  // return false;
 
   /*
     ret_val = this->my_tree.table.Install(this->id, split_node, chain_len+1);
