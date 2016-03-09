@@ -288,6 +288,7 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       }
       return true;
     } else {
+      LOG_DEBUG("CAS FAILED IN INSTALL");
       return false;
     }
     // Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_node =
@@ -2025,6 +2026,14 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     new_left_max = L->key_list.end()->first;
     KeyType new_split_key = R->key_list.begin()->first;
 
+    if (direction == LEFT)
+    {
+      L -> next = n_node_pointer;
+      R -> next = self_node;
+    } else if(direction == RIGHT) {
+      L -> next = self_node;
+      R -> next = n_node_pointer;
+    }
     ret_val = self_node->my_tree.table.Install(L->id, L);
     if (!ret_val) return false;
     ret_val = self_node->my_tree.table.Install(R->id, R);
@@ -2388,6 +2397,14 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 
     new_left_max = L->kv_list.end()->first;
     KeyType new_split_key = R->kv_list.begin()->first;
+    if (direction == LEFT)
+    {
+      L -> next = n_node_pointer;
+      R -> next = self_node;
+    } else if(direction == RIGHT) {
+      L -> next = self_node;
+      R -> next = n_node_pointer;
+    }
     ret_val = this->my_tree.table.Install(L->id, L);
     if (!ret_val) return false;
     ret_val = this->my_tree.table.Install(R->id, R);
