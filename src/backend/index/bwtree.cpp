@@ -799,11 +799,13 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SplitRoot(
   internal_pointer->left_sibling = 0;
   internal_pointer->right_sibling = 0;
   internal_pointer->chain_len = 0;
-  table.Install(new_root_id, internal_pointer);
+  bool ret_val = table.Install(new_root_id, internal_pointer);
   // LOG_DEBUG("Installed the new root");
   // TODO: Need to handle race conditions here
+  if (!ret_val) return false;
+
   tree_height++;
-  bool ret_val = __sync_bool_compare_and_swap(&root, old_root_id, new_root_id);
+  ret_val = __sync_bool_compare_and_swap(&root, old_root_id, new_root_id);
   // LOG_DEBUG("CAS on the tree root retunred %d", ret_val);
   return ret_val;
 }
@@ -1069,12 +1071,12 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
                 seen_remove_delta_node);
     // LOG_DEBUG("Redriect the insert to my neighbor");
     uint64_t neighbor_id = seen_remove_delta->merged_to_id;
-    uint64_t neighbor_node_size = Get_size(neighbor_id);
-    if (neighbor_node_size == max_node_size - 1) {
+    // uint64_t neighbor_node_size = Get_size(neighbor_id);
+    // if (neighbor_node_size == max_node_size - 1) {
       // Tricky case, we consolidate because the node is about to overflow
       // LOG_DEBUG("Finish the consolidation");
-      Consolidate(neighbor_id, true, tw);
-    }
+    while(!Consolidate(neighbor_id, true, tw));
+    // }
     // Since there could be consolidating happening, seen_remove_delta is no
     // longer accessible!!!
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* target =
@@ -1090,14 +1092,9 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
             temptemp);
     // LOG_DEBUG("Leaf insert on my merged neighbor");
     free(path);
+    this->memory_usage -= mem_len;
     auto retval = leaf_pointer->LeafInsert(key, value, tw);
-    if (!retval)
-    {
-      *successful = false;
-    } else {
-      *successful = true;
-      this->memory_usage -= mem_len;
-    }
+    *successful = retval;
     return true;
     // auto root_node = table.Get(root);
     // Traverse(root_node);
@@ -1113,14 +1110,9 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
   if ((!is_kv_unique) || (cur_node_size < max_node_size)) {
     // LOG_DEBUG("Leaf Insert");
     auto retval = leaf_pointer->LeafInsert(key, value, tw);
-    if (!retval)
-    {
-      *successful = false;
-    } else {
-      *successful = true;
-      this->memory_usage -= mem_len;
-    }
+    *successful = retval;
     free(path);
+    this->memory_usage -= mem_len;
     return true;
     // auto root_node = table.Get(root);
     // Traverse(root_node);
@@ -1128,13 +1120,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
     if (is_kv_unique) {
       //// LOG_DEBUG("Leaf Split");
       auto retval = leaf_pointer->LeafSplit(path, location, key, value, tw);
-      if (!retval)
-      {
-        *successful = false;
-      } else {
-        *successful = true;
-        this->memory_usage -= mem_len;
-      }
+      *successful = retval;
+      this->memory_usage -= mem_len;
       // auto root_node = table.Get(root);
       free(path);
       // Traverse(root_node);
@@ -1187,7 +1174,7 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
     KeyType key, ValueType value,
-    ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw) {
+    ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw, bool *successful) {
   LOG_DEBUG("Inside delete");
 
   uint64_t* path = (uint64_t*)malloc(sizeof(uint64_t) * tree_height);
@@ -1217,6 +1204,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
     LOG_DEBUG("Key Value pair does not exist");
     this->memory_usage -= mem_len;
     free(path);
+    *successful = false;
     return false;
   }
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
@@ -1244,7 +1232,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
     //}
     // Since there could be consolidating happening, seen_remove_delta is no
     // longer accessible!!!
-    Consolidate(neighbor_id, true, tw);
+    while(!Consolidate(neighbor_id, true, tw));
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* target =
         this->table.Get(neighbor_id);
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temptemp =
@@ -1260,9 +1248,10 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
     this->memory_usage -= mem_len;
     free(path);
     auto retval = leaf_pointer->LeafDelete(key, value, tw);
+    *successful = retval;
     // auto root_node = table.Get(root);
     // Traverse(root_node);
-    return retval;
+    return true;
   }
 
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
@@ -1276,18 +1265,20 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
     this->memory_usage -= mem_len;
     free(path);
     auto retval = leaf_pointer->LeafDelete(key, value, tw);
+    *successful = retval;
     // auto root_node = table.Get(root);
     // Traverse(root_node);
-    return retval;
+    return true;
   } else {
     if (is_kv_unique) {
       LOG_DEBUG("Leaf merge");
       auto retval = leaf_pointer->LeafMerge(path, location, key, value, tw);
+      *successful = retval;
       this->memory_usage -= mem_len;
       free(path);
       // auto root_node = table.Get(root);
       // Traverse(root_node);
-      return retval;
+      return true;
     } else {
       return true;
     }
@@ -1633,11 +1624,9 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   {
     return insert_res;
   }
-  bool result = this->my_tree.Consolidate(this->id, true, tw);
-  if (!result)
-  {
-    return result;
-  }
+  // Force consolidate to succeed
+  while(!this->my_tree.Consolidate(this->id, true, tw));
+
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* self_ =
       this->my_tree.table.Get(this->id);
 
@@ -1736,17 +1725,11 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   uint32_t chain_len = self_node->chain_len;
   bool ret_val = true;
   ret_val = this->my_tree.table.Install(new_node_id, new_leaf_node);
-  if (!ret_val) {
-    this->my_tree.memory_usage -= sizeof(*new_leaf_node);
-    return false;
-  }
+  if (!ret_val) return false;
+
   split_node->chain_len = chain_len + 1;
   ret_val = this->my_tree.table.Install(this->id, split_node);
-  if (!ret_val) {
-    this->my_tree.memory_usage -= sizeof(*new_leaf_node);
-    this->my_tree.memory_usage -= sizeof(*split_node);
-    return false;
-  }
+  if (!ret_val) return false;
 
   // LOG_DEBUG("This split node now has size %ld and the new node has size %ld",
   // this->my_tree.Get_size(this->id),
@@ -1788,7 +1771,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         if (neighbor_node_size == this->my_tree.max_node_size - 1) {
           // Tricky case, we consolidate because the node is about to underflow
           // LOG_DEBUG("Finish the consolidation");
-          this->my_tree.Consolidate(neighbor_id, true, tw);
+          while(this->my_tree.Consolidate(neighbor_id, true, tw));
         }
         // Since there could be consolidating happening, seen_remove_delta is no
         // longer accessible!!!
@@ -1806,35 +1789,20 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         // LOG_DEBUG("Internal insert split delta on my merged neighbor");
         auto retval = true_parent_pointer->InternalInsert(
             split_key, boundary_key, new_node_id, tw);
-        if (!retval)
-        {
-          this->my_tree.memory_usage -= sizeof(*new_leaf_node);
-          this->my_tree.memory_usage -= sizeof(*split_node);
-          return false;
-        }
+        if (!retval) return false;
         // auto root_node = this->my_tree.table.Get(this->my_tree.root);
         // this->my_tree.Traverse(root_node);
-        return retval;
+        return true;
       }
 
       ret_val = internal_pointer->InternalInsert(split_key, boundary_key,
                                                  new_node_id, tw);
-      if (!ret_val)
-      {
-        this->my_tree.memory_usage -= sizeof(*new_leaf_node);
-        this->my_tree.memory_usage -= sizeof(*split_node);
-        return false;
-      }
+      if (!ret_val) return false;
     } else {
       // LOG_DEBUG("Splitting parent");
       ret_val = internal_pointer->InternalSplit(path, index - 1, split_key,
                                                 boundary_key, new_node_id, tw);
-      if (!ret_val)
-      {
-        this->my_tree.memory_usage -= sizeof(*new_leaf_node);
-        this->my_tree.memory_usage -= sizeof(*split_node);
-        return false;
-      }
+      if (!ret_val) return false;
     }
     return true;
   } else {
@@ -1842,12 +1810,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     ret_val = this->my_tree.SplitRoot(split_key, this->id, new_node_id, tw);
     /* If the split root fails, return failure and let the user decide what to
        do next. This might be the only case in which we return on failure */
-    if (!ret_val)
-    {
-      this->my_tree.memory_usage -= sizeof(*new_leaf_node);
-      this->my_tree.memory_usage -= sizeof(*split_node);
-      return false;
-    }
+    if (!ret_val) return false;
     return true;
   }
   assert(false);
@@ -1869,13 +1832,16 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     // I am the root
     uint64_t root_size = this->my_tree.Get_size(this->id);
     if (this->InternalDelete(merge_key, node_id, tw)) {
-      return this->my_tree.Consolidate(this->id, true, tw);
+      while(!this->my_tree.Consolidate(this->id, true, tw));
+      return true;
+    } else {
+      return false;
     }
     // LOG_DEBUG("Internal merge called for node id %ld", this->id);
     if (root_size == 1) {
       // The root is about to be empty, hence need to find the new root
       LOG_DEBUG("Consolidating here to install new root");
-      this->my_tree.Consolidate(this->id, true, tw);
+      while(!this->my_tree.Consolidate(this->id, true, tw));
       Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* self_ =
           this->my_tree.table.Get(this->id);
 
@@ -1910,11 +1876,10 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     }
   }
   // LOG_DEBUG("Earlier size is %ld", this->key_list.size());
-  this->InternalDelete(merge_key, node_id, tw);
-  bool ret_val = this->my_tree.Consolidate(this->id, true, tw);
-  if (!ret_val) {
-    return ret_val;
-  }
+  bool ret_val = this->InternalDelete(merge_key, node_id, tw);
+  if (!ret_val) return false;
+  while(!this->my_tree.Consolidate(this->id, true, tw));
+
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* self_ =
       this->my_tree.table.Get(this->id);
 
@@ -2093,7 +2058,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     //    tw);
     // if (!ret_val) return false;
 
-    return ret_val;
+    return true;
   }
 
   // (a) Posting remove node delta
@@ -2201,7 +2166,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       if (neighbor_node_size == this->my_tree.min_node_size + 1) {
         // Tricky case, we consolidate because the node is about to underflow
         // LOG_DEBUG("Finish the consolidation");
-        this->my_tree.Consolidate(neighbor_id, true, tw);
+        while(!this->my_tree.Consolidate(neighbor_id, true, tw));
       }
       // Since there could be consolidating happening, seen_remove_delta is no
       // longer accessible!!!
@@ -2218,18 +2183,21 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                                           KeyEqualityChecker>*>(temptemp);
       // LOG_DEBUG("Internal delete on my merged neighbor");
       free(path);
-
+      this->my_tree.memory_usage -=
+            (this->my_tree.tree_height * sizeof(uint64_t));
       auto retval = true_parent_pointer->InternalDelete(merge_node->merge_key,
                                                         neighbour_node_id, tw);
       // auto root_node = this->my_tree.table.Get(this->my_tree.root);
       // this->my_tree.Traverse(root_node);
-      return retval;
+      if (!retval) return false;
+      return true;
     }
 
     ret_val = parent_pointer->InternalMerge(
         path, index - 1, merge_node->merge_key, neighbour_node_id, tw);
+    if (!ret_val) return false;
   }
-  return ret_val;
+  return true;
   // }
 
   // return false;
@@ -2252,13 +2220,14 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   //    break;
   //  }
   // }
-  this->LeafDelete(key, value, tw);
+  bool ret_val = this->LeafDelete(key, value, tw);
+  if (!ret_val) return false;
+
   // We are the root node
   if (index == 0) return true;
-  bool ret_val = this->my_tree.Consolidate(this->id, true, tw);
-  if (!ret_val) {
-    return ret_val;
-  }
+  // Force consolidation
+  while(!this->my_tree.Consolidate(this->id, true, tw));
+
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* self_ =
       this->my_tree.table.Get(this->id);
 
@@ -2307,7 +2276,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                                         this->id);
   }
 
-  this->my_tree.Consolidate(neighbour_node_id, true, tw);
+  while(!this->my_tree.Consolidate(neighbour_node_id, true, tw));
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n_node_ =
       this->my_tree.table.Get(neighbour_node_id);
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
@@ -2450,7 +2419,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       tw->to_be_cleaned.push_back(n_node_);
       n_node_ = clean_temp;
     }
-    return ret_val;
+    return true;
   }
 
   // LOG_DEBUG("neighbout node id  for leaf merge of %ld is %ld with direction
@@ -2546,6 +2515,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     // LOG_DEBUG("calling internal delete");
     ret_val = parent_pointer->InternalDelete(merge_node->merge_key,
                                              neighbour_node_id, tw);
+    if (!ret_val) return false;
   } else {
     LOG_DEBUG("calling internal merge");
     if (seen_remove_delta_node != nullptr) {
@@ -2560,7 +2530,7 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       if (neighbor_node_size == this->my_tree.min_node_size + 1) {
         // Tricky case, we consolidate because the node is about to underflow
         LOG_DEBUG("Finish the consolidation");
-        this->my_tree.Consolidate(neighbor_id, true, tw);
+        while(!this->my_tree.Consolidate(neighbor_id, true, tw));
       }
       // Since there could be consolidating happening, seen_remove_delta is no
       // longer accessible!!!
@@ -2581,12 +2551,14 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                                                         neighbour_node_id, tw);
       // auto root_node = this->my_tree.table.Get(this->my_tree.root);
       // this->my_tree.Traverse(root_node);
-      return retval;
+      if (!retval) return false;
+      return true;
     }
     ret_val = parent_pointer->InternalMerge(
         path, index - 1, merge_node->merge_key, neighbour_node_id, tw);
+    if (!ret_val) return false;
   }
-  return ret_val;
+  return true;
   // }
 
   // return false;
@@ -3426,16 +3398,19 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                   KeyType requested_boundary_key, uint64_t new_node_id,
                   ThreadWrapper<KeyType, ValueType, KeyComparator,
                                 KeyEqualityChecker>* tw) {
-  bool ret_val = true;
-  this->InternalInsert(requested_key, requested_boundary_key, new_node_id, tw);
-  ret_val = this->my_tree.Consolidate(this->id, true, tw);
+  bool ret_val = this->InternalInsert(requested_key, requested_boundary_key, new_node_id, tw);
+  if (!ret_val)
+  {
+    return false;
+  }
+  while(!this->my_tree.Consolidate(this->id, true, tw));
+
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* self_ =
       this->my_tree.table.Get(this->id);
 
   InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
       self_node = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
                                               KeyEqualityChecker>*>(self_);
-  if (!ret_val) return false;
 
   uint64_t new_internal_node_id = this->my_tree.table.GetNextId();
   InternalBWNode<KeyType, ValueType, KeyComparator,
@@ -3569,7 +3544,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         if (neighbor_node_size == this->my_tree.max_node_size - 1) {
           // Tricky case, we consolidate because the node is about to underflow
           // LOG_DEBUG("Finish the consolidation");
-          this->my_tree.Consolidate(neighbor_id, true, tw);
+          while(this->my_tree.Consolidate(neighbor_id, true, tw));
         }
         // Since there could be consolidating happening, seen_remove_delta is no
         // longer accessible!!!
@@ -3590,17 +3565,22 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         free(path);
         auto retval = true_parent_pointer->InternalInsert(
             split_key, boundary_key, new_node_id, tw);
+        if (!retval) return false;
         // auto root_node = this->my_tree.table.Get(this->my_tree.root);
         // this->my_tree.Traverse(root_node);
-        return retval;
+        return true;
       }
 
       ret_val = internal_pointer->InternalInsert(split_key, boundary_key,
                                                  new_node_id, tw);
-    } else
+      if (!ret_val) return false;
+
+    } else {
       ret_val = internal_pointer->InternalSplit(path, index - 1, split_key,
                                                 boundary_key, new_node_id, tw);
-    return ret_val;
+      if (!ret_val) return false;
+    }
+    return true;
   } else {
     ret_val =
         this->my_tree.SplitRoot(split_key, this->id, new_internal_node_id, tw);
@@ -3609,7 +3589,8 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     this->my_tree.memory_usage -=
         (this->my_tree.tree_height * sizeof(uint64_t));
     free(path);
-    return ret_val;
+    if (!ret_val) return false;
+    return true;
   }
   assert(false);
   return false;
