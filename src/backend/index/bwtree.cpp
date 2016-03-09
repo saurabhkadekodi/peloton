@@ -1089,6 +1089,8 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
     KeyType key, ValueType value,
     ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw) {
+  LOG_DEBUG("Inside delete");
+
   uint64_t* path = (uint64_t*)malloc(sizeof(uint64_t) * tree_height);
   auto mem_len = (tree_height * sizeof(uint64_t));
   this->memory_usage += mem_len;
@@ -2285,9 +2287,11 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       if (!this -> my_tree.equals(first_key, key))
       {
         i++;
-        first_key = temp_iterator -> first;
+        printf("incresemee\n");
+        first_key = key;
       }
-      if (i == half_count)
+      printf("i is %d\n", i);
+      if (i == half_count-1)
       {
         break;
       }
@@ -2300,9 +2304,11 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       if (!this -> my_tree.equals(first_key, key))
       {
         i++;
-        first_key = temp_iterator -> first;
+        first_key = key;
       }
-      if (i == total_count)
+      printf("i is %d\n", i);
+
+      if (i == total_count-1)
       {
         break;
       }
