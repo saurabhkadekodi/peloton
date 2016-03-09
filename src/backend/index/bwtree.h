@@ -2276,6 +2276,8 @@ class BWTree {
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
   void CleanupTreeIteratively(
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
+  void SanityCheck(uint64_t id, ThreadWrapper<KeyType, ValueType, KeyComparator,
+                                 KeyEqualityChecker>* tw);
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator,

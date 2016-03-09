@@ -21,6 +21,8 @@ namespace peloton {
 namespace index {
 using namespace std;  // SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
 
+static bool retry = false;
+
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
 Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Epoch(
@@ -3649,10 +3651,10 @@ void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Traverse() {
   // Traverse(root_node);
   Traverse(root);
 }
-#if 0
+//#if 0
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
-void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SanityCheck(uint64_t id) {
+void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SanityCheck(uint64_t id, ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw) {
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node =
       this->table.Get(id);
   if (node == nullptr) {
@@ -3680,7 +3682,7 @@ void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SanityCheck(
                                  }
 
                                  if(node_->chain_len > policy) {
-                                   LOG_ERROR("Delta chain length constraints violated for node %lu, type = %s. Current delta chain length = %lu", node->id, node->Print_type(), node_->chain_len);
+                                   LOG_ERROR("Delta chain length constraints violated for node %lu, type = %s. Current delta chain length = %d", node->id, node->Print_type(), node_->chain_len);
                                    violation = true;
                                    break;
                                  }
@@ -3697,6 +3699,14 @@ void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SanityCheck(
                                    break;
                                  }
                                }
+
+                               if (node_->leftmost_pointer) {
+                                 SanityCheck(node_->leftmost_pointer, tw);
+                               }
+                               auto it = node_->key_list.begin();
+                               for (; it != node_->key_list.end(); it++) {
+                                 SanityCheck(it->second, tw);
+                               }
                              } break;
     case (LEAF_BW_NODE): {
                            /*
@@ -3707,36 +3717,126 @@ void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SanityCheck(
                             */
                            auto node_ = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
                                               KeyEqualityChecker>*>(node);
-                           auto num_unique_keys = 0;
                            auto it = node_->kv_list.begin();
-                           set<KeyType, KetComparator> unique_keys;
-                           for(; it != kv_list.end(); it++) {
-                             unique_key.insert(it->first);
+                           set<KeyType, KeyComparator> unique_keys(KeyComparator(this->metadata));
+                           for(; it != node_->kv_list.end(); it++) {
+                             unique_keys.insert(it->first);
                            }
                            if((node_->chain_len == 0) && ((unique_keys.size() < min_node_size) || (unique_keys.size() > max_node_size))) {
+                             LOG_ERROR("Node %lu of type %s has 0 chain length and violates node size constraints by having %lu unique keys.", node->id, node->Print_type(), unique_keys.size());
                              violation = true;
                              break;
                            }
                          } break;
-    case (INSERT):
-      break;
-    case (UPDATE):
-      break;
-    case (DELETE):
-      break;
-    case (SPLIT):
-      break;
-    case (MERGE):
-      break;
-    case (REMOVE):
-      break;
-    case (SPLIT_INDEX):
-      break;
-    case (REMOVE_INDEX):
-      break;
+    case (INSERT): {
+                     /*
+                      * Insert delta has to maintain the following rules:
+                      * - next cannot point to null.
+                      */
+                     if(node->next == nullptr) {
+                       LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
+                       violation = true;
+                       break;
+                     }
+                     SanityCheck(node->next->id, tw);
+                   } break;
+    case (UPDATE): {
+                     /*
+                      * Update delta has to maintain the following rules:
+                      * - next cannot point to null.
+                      */
+                     if(node->next == nullptr) {
+                       LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
+                       violation = true;
+                       break;
+                     }
+                     SanityCheck(node->next->id, tw);
+                   } break;
+    case (DELETE): {
+                     /*
+                      * Delete delta has to maintain the following rules:
+                      * - next cannot point to null.
+                      */
+                     if(node->next == nullptr) {
+                       LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
+                       violation = true;
+                       break;
+                     }
+                     SanityCheck(node->next->id, tw);
+                   } break;
+    case (SPLIT): {
+                    /*
+                     * Split delta has to maintain the following rules:
+                     * - next cannot point to null.
+                     */
+                    if(node->next == nullptr) {
+                      LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
+                      violation = true;
+                      break;
+                    }
+                    SanityCheck(node->next->id, tw);
+                  } break;
+    case (MERGE): {
+                    /*
+                     * Merge delta has to maintain the following rules:
+                     * - next cannot point to null.
+                     */
+                    if(node->next == nullptr) {
+                      LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
+                      violation = true;
+                      break;
+                    }
+                    SanityCheck(node->next->id, tw);
+                  } break;
+    case (REMOVE): {
+                     /*
+                      * Remove delta has to maintain the following rules:
+                      * - next cannot point to null.
+                      */
+                     if(node->next == nullptr) {
+                       LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
+                       violation = true;
+                       break;
+                     }
+                     SanityCheck(node->next->id, tw);
+                   } break;
+    case (SPLIT_INDEX): {
+                          /*
+                           * Split index delta has to maintain the following rules:
+                           * - next cannot point to null.
+                           */
+                          if(node->next == nullptr) {
+                            LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
+                            violation = true;
+                            break;
+                          }
+                          SanityCheck(node->next->id, tw);
+                        } break;
+    case (REMOVE_INDEX): {
+                           /*
+                            * Remove index delta has to maintain the following rules:
+                            * - next cannot point to null.
+                            */
+                           if(node->next == nullptr) {
+                             LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
+                             violation = true;
+                             break;
+                           }
+                           SanityCheck(node->next->id, tw);
+                         } break;
+  }
+
+  if(violation && retry) {
+    assert(0);
+  }
+  if(violation) {
+    Consolidate(id, true, tw);
+    SanityCheck(id, tw);
+  } else {
+    retry = false;
   }
 }
-#endif
+//#endif
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Traverse(
