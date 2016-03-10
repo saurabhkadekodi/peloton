@@ -216,13 +216,18 @@ void DeleteTest(index::Index *index, VarlenPool *pool, size_t scale_factor) {
 
     // DELETE
     index->DeleteEntry(key0.get(), item0);
+    printf("\n########## DELETED 0 ############\n");
     index->DeleteEntry(key1.get(), item1);
+    printf("\n########## DELETED 1 VALUE 1 ############\n");
     index->DeleteEntry(key2.get(), item2);
+    printf("\n########## DELETED 2 ############\n");
     index->DeleteEntry(key3.get(), item1);
+    printf("\n########## DELETED 3 ############\n");
     index->DeleteEntry(key4.get(), item1);
+    printf("\n########## DELETED 4 ############\n");
   }
 }
-//#if 0
+#if 0
 TEST(IndexTests, DeleteTest) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
   std::vector<ItemPointer> locations;
@@ -252,12 +257,12 @@ TEST(IndexTests, DeleteTest) {
   printf("####### ABOUT TO SEARCH 0 #########\n");
   locations = index->ScanKey(key0.get());
   EXPECT_EQ(locations.size(), 0);
-  //EXPECT_EQ(locations.size(), 1);
+  // EXPECT_EQ(locations.size(), 1);
 
   printf("####### ABOUT TO SEARCH 1 #########\n");
   locations = index->ScanKey(key1.get());
   EXPECT_EQ(locations.size(), 2);
-  //EXPECT_EQ(locations.size(), 5);
+  // EXPECT_EQ(locations.size(), 5);
 
   printf("####### ABOUT TO SEARCH 2 #########\n");
   locations = index->ScanKey(key2.get());
@@ -266,7 +271,28 @@ TEST(IndexTests, DeleteTest) {
 
   delete tuple_schema;
 }
-//#endif
+#endif
+
+void SimpleInsert(index::Index *index, VarlenPool *pool, size_t scale_factor __attribute__((unused))) {
+  std::unique_ptr<storage::Tuple> key0(new storage::Tuple(key_schema, true));
+  std::unique_ptr<storage::Tuple> key1(new storage::Tuple(key_schema, true));
+  std::unique_ptr<storage::Tuple> key2(new storage::Tuple(key_schema, true));
+  std::unique_ptr<storage::Tuple> key3(new storage::Tuple(key_schema, true));
+  //std::unique_ptr<storage::Tuple> key4(new storage::Tuple(key_schema, true));
+
+  key0->SetValue(0, ValueFactory::GetIntegerValue(0), pool);
+  key1->SetValue(0, ValueFactory::GetIntegerValue(1), pool);
+  key2->SetValue(0, ValueFactory::GetIntegerValue(2), pool);
+  key3->SetValue(0, ValueFactory::GetIntegerValue(3), pool);
+  //key4->SetValue(0, ValueFactory::GetIntegerValue(4), pool);
+
+  // INSERT
+  assert(index->InsertEntry(key0.get(), item0) == true);
+  assert(index->InsertEntry(key1.get(), item0) == true);
+  assert(index->InsertEntry(key2.get(), item0) == true);
+  assert(index->InsertEntry(key3.get(), item0) == true);
+  //assert(index->InsertEntry(key4.get(), item0) == true);
+}
 
 /**
  * We need tests for:
@@ -286,7 +312,7 @@ TEST(IndexTests, DeleteTest) {
  * 13. Multithreaded insert test - already given (MultiThreadedInsertTest)
  */
 
-//#if 0
+#if 0
 TEST(IndexTests, BasicTest) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
   std::vector<ItemPointer> locations;
@@ -314,6 +340,15 @@ TEST(IndexTests, BasicTest) {
   EXPECT_EQ(locations.size(), 0);
 
   delete tuple_schema;
+}
+
+void SimpleInsert(index::Index *index, VarlenPool *pool, size_t scale_factor __attribute__((unused))) {
+  std::unique_ptr<storage::Tuple> key0(new storage::Tuple(key_schema, true));
+
+  key0->SetValue(0, ValueFactory::GetIntegerValue(0), pool);
+
+  // INSERT
+  assert(index->InsertEntry(key0.get(), item0) == true);
 }
 
 TEST(IndexTests, SimpleInsertSingleThreaded) {
@@ -539,16 +574,16 @@ TEST(IndexTests, DeleteTreeSingleThreaded) {
   assert(index->InsertEntry(key8.get(), item0) == true);
   assert(index->InsertEntry(key7.get(), item0) == true);
   assert(index->InsertEntry(key6.get(), item0) == true);
-  //index->GetMemoryFootprint();
+  // index->GetMemoryFootprint();
   assert(index->InsertEntry(key5.get(), item0) == true);
-  //index->GetMemoryFootprint();
+  // index->GetMemoryFootprint();
   assert(index->InsertEntry(key4.get(), item0) == true);
   assert(index->InsertEntry(key3.get(), item0) == true);
   assert(index->InsertEntry(key2.get(), item0) == true);
   assert(index->InsertEntry(key1.get(), item0) == true);
   assert(index->InsertEntry(key0.get(), item0) == true);
   printf("All the inserts were successful. Now deleting\n");
-  //index->Traverse();
+  // index->Traverse();
   // DELETE
   assert(index->DeleteEntry(key1.get(), item0) == true);
   printf("Deleted 1\n");
@@ -595,8 +630,8 @@ TEST(IndexTests, MultiThreadedInsertTest) {
   EXPECT_EQ(locations.size(), 9 * num_threads);
 
   std::unique_ptr<storage::Tuple> key0(new storage::Tuple(key_schema, true));
-  std::unique_ptr<storage::Tuple> keynonce(new storage::Tuple(key_schema,
-  true));
+  std::unique_ptr<storage::Tuple> keynonce(
+      new storage::Tuple(key_schema, true));
 
   keynonce->SetValue(0, ValueFactory::GetIntegerValue(1000), pool);
   keynonce->SetValue(1, ValueFactory::GetStringValue("f"), pool);
@@ -610,6 +645,24 @@ TEST(IndexTests, MultiThreadedInsertTest) {
   locations = index->ScanKey(key0.get());
   EXPECT_EQ(locations.size(), num_threads);
   EXPECT_EQ(locations[0].block, item0.block);
+
+  delete tuple_schema;
+}
+#endif
+TEST(IndexTests, SimpleMultiThreadedTest) {
+  auto pool = TestingHarness::GetInstance().GetTestingPool();
+  std::vector<ItemPointer> locations;
+
+  // INDEX
+  std::unique_ptr<index::Index> index(BuildIndex());
+
+  // Parallel Test
+  size_t num_threads = 5;
+  size_t scale_factor = 1;
+  LaunchParallelTest(num_threads, SimpleInsert, index.get(), pool, scale_factor);
+
+  locations = index->ScanAllKeys();
+  EXPECT_EQ(locations.size(), 4 * num_threads);
 
   delete tuple_schema;
 }
