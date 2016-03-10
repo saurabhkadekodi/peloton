@@ -22,7 +22,7 @@ namespace index {
 using namespace std;  // SUGGESTION: DON'T USE A GLOBAL USING NAMESPACE
 
 static bool retry = false;
-//static atomic<uint64_t> map_num;
+// static atomic<uint64_t> map_num;
 
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
@@ -43,9 +43,11 @@ void Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::concatenate(
    * We concatenate the elements in thread_gc_list to the epoch gc list
    * because the operation carried out by the thread was successful.
    */
-  //list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>* cleaning_list_ptr = nullptr;
-  //while(!cleaning_map.find((uint64_t) thread_gc_list, cleaning_list_ptr)) {
-  //while(!cleaning_map.insert((uint64_t) thread_gc_list, thread_gc_list)->second);
+  // list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>*
+  // cleaning_list_ptr = nullptr;
+  // while(!cleaning_map.find((uint64_t) thread_gc_list, cleaning_list_ptr)) {
+  // while(!cleaning_map.insert((uint64_t) thread_gc_list,
+  // thread_gc_list)->second);
   //  cleaning_map.insert((uint64_t) thread_gc_list, thread_gc_list);
   //}
   this->my_tree.map_num.fetch_add(1);
@@ -81,18 +83,19 @@ void Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::performGc() {
       "@@@@@@@@@@@@",
       this->generation, this->my_tree.current_epoch->generation);
 
-  for(auto c_it=cleaning_map.begin(); c_it!=cleaning_map.end(); c_it++) {
+  for (auto c_it = cleaning_map.begin(); c_it != cleaning_map.end(); c_it++) {
     LOG_DEBUG("IN HERE AND SIZE = %lu", cleaning_map.size());
     auto c_list = c_it->second;
-    uint64_t map_num = c_it->first;
-    LOG_DEBUG("THE KEY IS %lu", map_num);
+    // uint64_t map_num = c_it->first;
+    // LOG_DEBUG("THE KEY IS %lu", map_num);
     for (auto it = c_list->begin(); it != c_list->end(); it++) {
       LOG_DEBUG("IN HERE TOO list size is %lu", c_list->size());
       this->my_tree.memory_usage -= sizeof(*(*it));
       LOG_DEBUG("memory usage is %lu", sizeof(*(*it)));
-      //this->my_tree.memory_usage -= sizeof(*(*it));
-      LOG_DEBUG("@@@@@@@@@ Garbage Collecting Node %lu from map id %lu of type %s @@@@@@@@@@@",
-         (*it)->id, map_num, (*it)->Print_type());
+      // this->my_tree.memory_usage -= sizeof(*(*it));
+      // LOG_DEBUG("@@@@@@@@@ Garbage Collecting Node %lu from map id %lu of
+      // type %s @@@@@@@@@@@",
+      //    (*it)->id, map_num, (*it)->Print_type());
       delete *it;
     }
     c_list->clear();
@@ -100,18 +103,18 @@ void Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::performGc() {
     delete c_list;
   }
   cleaning_map.clear();
-  /*auto lt = cleaning_map.lock_table();
-  for (const auto& c_it : lt) {
-    auto c_list = c_it.second;
-    for (auto it = c_list->begin(); it != c_list->end(); it++) {
-      this->my_tree.memory_usage -= sizeof(*(*it));
-      LOG_DEBUG("@@@@@@@@@ Garbage Collecting Node %lu of type %s @@@@@@@@@@@",
-          (*it)->id, (*it)->Print_type());
-      delete *it;
-    }
-    c_list->clear();
-    assert(c_list->size() == 0);
-  }*/
+/*auto lt = cleaning_map.lock_table();
+for (const auto& c_it : lt) {
+  auto c_list = c_it.second;
+  for (auto it = c_list->begin(); it != c_list->end(); it++) {
+    this->my_tree.memory_usage -= sizeof(*(*it));
+    LOG_DEBUG("@@@@@@@@@ Garbage Collecting Node %lu of type %s @@@@@@@@@@@",
+        (*it)->id, (*it)->Print_type());
+    delete *it;
+  }
+  c_list->clear();
+  assert(c_list->size() == 0);
+}*/
 
 #if 0
   // LOG_DEBUG("** garbage collecting epoch: cleaning %lu nodes **",
@@ -319,36 +322,36 @@ bool CASMappingTable<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   }
 
   // while (true) {
-    Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* old_node =
-        node_ptr->next;
+  Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* old_node =
+      node_ptr->next;
+  table_val = nullptr;
+  uint64_t table_val_addr = 0;
+  if (!cas_mapping_table.find(id, table_val, table_val_addr)) {
+    assert(0);
+  }
+  if (__sync_bool_compare_and_swap((void**)table_val_addr, old_node,
+                                   node_ptr)) {
     table_val = nullptr;
-    uint64_t table_val_addr = 0;
-    if (!cas_mapping_table.find(id, table_val, table_val_addr)) {
+    if (!cas_mapping_table.find(id, table_val)) {
       assert(0);
     }
-    if (__sync_bool_compare_and_swap((void**)table_val_addr, old_node,
-                                     node_ptr)) {
-      table_val = nullptr;
-      if (!cas_mapping_table.find(id, table_val)) {
-        assert(0);
-      }
-      if (table_val->type == INTERNAL_BW_NODE ||
-          table_val->type == LEAF_BW_NODE) {
-        table_val->chain_len = 0;
-        table_val->next = NULL;
-      }
-      return true;
-    } else {
-      LOG_DEBUG("CAS FAILED IN INSTALL");
-      return false;
+    if (table_val->type == INTERNAL_BW_NODE ||
+        table_val->type == LEAF_BW_NODE) {
+      table_val->chain_len = 0;
+      table_val->next = NULL;
     }
-    // Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_node =
-    //     nullptr;
-    // if (!cas_mapping_table.find(id, cur_node)) {
-    //   assert(0);
-    // }
-    // node_ptr->next = cur_node;
-    // node_ptr->chain_len = cur_node->chain_len + 1;
+    return true;
+  } else {
+    LOG_DEBUG("CAS FAILED IN INSTALL");
+    return false;
+  }
+  // Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* cur_node =
+  //     nullptr;
+  // if (!cas_mapping_table.find(id, cur_node)) {
+  //   assert(0);
+  // }
+  // node_ptr->next = cur_node;
+  // node_ptr->chain_len = cur_node->chain_len + 1;
   // }
   return true;
 }
@@ -1030,14 +1033,13 @@ bool BWTree<KeyType, ValueType, KeyComparator,
                                                ValueType location) {
   auto retval = true;
   do {
-    auto tw =
-        new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-            current_epoch);
+    auto tw = new ThreadWrapper<KeyType, ValueType, KeyComparator,
+                                KeyEqualityChecker>(current_epoch);
     this->memory_usage += sizeof(*tw);
     // auto e = current_epoch;
     tw->e->join();
     retval = Insert(key, location, tw, &(tw->op_status));
-    if(retval && tw -> op_status) {
+    if (retval && tw->op_status) {
       tw->e->concatenate(tw->to_be_cleaned);
       if (tw->e->leave()) {
         this->memory_usage -= sizeof(*(tw->e));
@@ -1064,7 +1066,8 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
     KeyType key, ValueType value,
-    ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw, bool* successful) {
+    ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw,
+    bool* successful) {
   uint64_t* path = (uint64_t*)malloc(sizeof(uint64_t) * tree_height);
   auto mem_len = (tree_height * sizeof(uint64_t));
   this->memory_usage += mem_len;
@@ -1127,9 +1130,10 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Insert(
     uint64_t neighbor_id = seen_remove_delta->merged_to_id;
     // uint64_t neighbor_node_size = Get_size(neighbor_id);
     // if (neighbor_node_size == max_node_size - 1) {
-      // Tricky case, we consolidate because the node is about to overflow
-      // LOG_DEBUG("Finish the consolidation");
-    while(!Consolidate(neighbor_id, true, tw));
+    // Tricky case, we consolidate because the node is about to overflow
+    // LOG_DEBUG("Finish the consolidation");
+    while (!Consolidate(neighbor_id, true, tw))
+      ;
     // }
     // Since there could be consolidating happening, seen_remove_delta is no
     // longer accessible!!!
@@ -1194,14 +1198,13 @@ bool BWTree<KeyType, ValueType, KeyComparator,
   bool ret_val = true;
 
   do {
-    auto tw =
-        new ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>(
-            current_epoch);
+    auto tw = new ThreadWrapper<KeyType, ValueType, KeyComparator,
+                                KeyEqualityChecker>(current_epoch);
     this->memory_usage += sizeof(*tw);
     // auto e = current_epoch;
     tw->e->join();
     ret_val = Delete(key, location, tw, &(tw->op_status));
-    if(ret_val && tw->op_status) {
+    if (ret_val && tw->op_status) {
       tw->e->concatenate(tw->to_be_cleaned);
       if (tw->e->leave()) {
         this->memory_usage -= sizeof(*(tw->e));
@@ -1229,7 +1232,8 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
     KeyType key, ValueType value,
-    ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw, bool *successful) {
+    ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw,
+    bool* successful) {
   LOG_DEBUG("Inside delete");
 
   uint64_t* path = (uint64_t*)malloc(sizeof(uint64_t) * tree_height);
@@ -1279,15 +1283,16 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
                 seen_remove_delta_node);
     // LOG_DEBUG("Redriect the delete to my neighbor");
     uint64_t neighbor_id = seen_remove_delta->merged_to_id;
-    //uint64_t neighbor_node_size = Get_size(neighbor_id);
-    //if (neighbor_node_size == min_node_size + 1) {
-      // Tricky case, we consolidate because the node is about to underflow
-      //LOG_DEBUG("Finish the consolidation");
-      //Consolidate(neighbor_id, true, tw);
+    // uint64_t neighbor_node_size = Get_size(neighbor_id);
+    // if (neighbor_node_size == min_node_size + 1) {
+    // Tricky case, we consolidate because the node is about to underflow
+    // LOG_DEBUG("Finish the consolidation");
+    // Consolidate(neighbor_id, true, tw);
     //}
     // Since there could be consolidating happening, seen_remove_delta is no
     // longer accessible!!!
-    while(!Consolidate(neighbor_id, true, tw));
+    while (!Consolidate(neighbor_id, true, tw))
+      ;
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* target =
         this->table.Get(neighbor_id);
     Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temptemp =
@@ -1345,7 +1350,8 @@ template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
 uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
     KeyType key, uint64_t* path, uint64_t& location,
-    ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw __attribute__((unused))) {
+    ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw
+    __attribute__((unused))) {
   uint64_t cur_id = root;
 
   bool stop = false;
@@ -1362,7 +1368,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Search(
       nullptr;
   while (!stop) {
     if (try_consolidation) {
-      //Consolidate(cur_id, try_consolidation, tw);
+      // Consolidate(cur_id, try_consolidation, tw);
       node_pointer = table.Get(cur_id);
       // LOG_DEBUG("Search is looking at node id %ld with top type %s", cur_id,
       //        node_pointer->Print_type());
@@ -1675,12 +1681,12 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
               ThreadWrapper<KeyType, ValueType, KeyComparator,
                             KeyEqualityChecker>* tw) {
   bool insert_res = this->LeafInsert(key, value, tw);
-  if (!insert_res)
-  {
+  if (!insert_res) {
     return insert_res;
   }
   // Force consolidate to succeed
-  while(!this->my_tree.Consolidate(this->id, true, tw));
+  while (!this->my_tree.Consolidate(this->id, true, tw))
+    ;
 
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* self_ =
       this->my_tree.table.Get(this->id);
@@ -1826,7 +1832,8 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         if (neighbor_node_size == this->my_tree.max_node_size - 1) {
           // Tricky case, we consolidate because the node is about to underflow
           // LOG_DEBUG("Finish the consolidation");
-          while(this->my_tree.Consolidate(neighbor_id, true, tw));
+          while (this->my_tree.Consolidate(neighbor_id, true, tw))
+            ;
         }
         // Since there could be consolidating happening, seen_remove_delta is no
         // longer accessible!!!
@@ -1887,7 +1894,8 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     // I am the root
     uint64_t root_size = this->my_tree.Get_size(this->id);
     if (this->InternalDelete(merge_key, node_id, tw)) {
-      while(!this->my_tree.Consolidate(this->id, true, tw));
+      while (!this->my_tree.Consolidate(this->id, true, tw))
+        ;
       return true;
     } else {
       return false;
@@ -1896,7 +1904,8 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     if (root_size == 1) {
       // The root is about to be empty, hence need to find the new root
       LOG_DEBUG("Consolidating here to install new root");
-      while(!this->my_tree.Consolidate(this->id, true, tw));
+      while (!this->my_tree.Consolidate(this->id, true, tw))
+        ;
       Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* self_ =
           this->my_tree.table.Get(this->id);
 
@@ -1933,7 +1942,8 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   // LOG_DEBUG("Earlier size is %ld", this->key_list.size());
   bool ret_val = this->InternalDelete(merge_key, node_id, tw);
   if (!ret_val) return false;
-  while(!this->my_tree.Consolidate(this->id, true, tw));
+  while (!this->my_tree.Consolidate(this->id, true, tw))
+    ;
 
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* self_ =
       this->my_tree.table.Get(this->id);
@@ -2077,13 +2087,12 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     new_left_max = L->key_list.end()->first;
     KeyType new_split_key = R->key_list.begin()->first;
 
-    if (direction == LEFT)
-    {
-      L -> next = n_node_pointer;
-      R -> next = self_node;
-    } else if(direction == RIGHT) {
-      L -> next = self_node;
-      R -> next = n_node_pointer;
+    if (direction == LEFT) {
+      L->next = n_node_pointer;
+      R->next = self_node;
+    } else if (direction == RIGHT) {
+      L->next = self_node;
+      R->next = n_node_pointer;
     }
     ret_val = self_node->my_tree.table.Install(L->id, L);
     if (!ret_val) return false;
@@ -2229,7 +2238,8 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       if (neighbor_node_size == this->my_tree.min_node_size + 1) {
         // Tricky case, we consolidate because the node is about to underflow
         // LOG_DEBUG("Finish the consolidation");
-        while(!this->my_tree.Consolidate(neighbor_id, true, tw));
+        while (!this->my_tree.Consolidate(neighbor_id, true, tw))
+          ;
       }
       // Since there could be consolidating happening, seen_remove_delta is no
       // longer accessible!!!
@@ -2247,7 +2257,7 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       // LOG_DEBUG("Internal delete on my merged neighbor");
       free(path);
       this->my_tree.memory_usage -=
-            (this->my_tree.tree_height * sizeof(uint64_t));
+          (this->my_tree.tree_height * sizeof(uint64_t));
       auto retval = true_parent_pointer->InternalDelete(merge_node->merge_key,
                                                         neighbour_node_id, tw);
       // auto root_node = this->my_tree.table.Get(this->my_tree.root);
@@ -2289,7 +2299,8 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   // We are the root node
   if (index == 0) return true;
   // Force consolidation
-  while(!this->my_tree.Consolidate(this->id, true, tw));
+  while (!this->my_tree.Consolidate(this->id, true, tw))
+    ;
 
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* self_ =
       this->my_tree.table.Get(this->id);
@@ -2339,7 +2350,8 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                                         this->id);
   }
 
-  while(!this->my_tree.Consolidate(neighbour_node_id, true, tw));
+  while (!this->my_tree.Consolidate(neighbour_node_id, true, tw))
+    ;
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* n_node_ =
       this->my_tree.table.Get(neighbour_node_id);
   LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
@@ -2448,13 +2460,12 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
 
     new_left_max = L->kv_list.end()->first;
     KeyType new_split_key = R->kv_list.begin()->first;
-    if (direction == LEFT)
-    {
-      L -> next = n_node_pointer;
-      R -> next = self_node;
-    } else if(direction == RIGHT) {
-      L -> next = self_node;
-      R -> next = n_node_pointer;
+    if (direction == LEFT) {
+      L->next = n_node_pointer;
+      R->next = self_node;
+    } else if (direction == RIGHT) {
+      L->next = self_node;
+      R->next = n_node_pointer;
     }
     ret_val = this->my_tree.table.Install(L->id, L);
     if (!ret_val) return false;
@@ -2601,7 +2612,8 @@ bool LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
       if (neighbor_node_size == this->my_tree.min_node_size + 1) {
         // Tricky case, we consolidate because the node is about to underflow
         LOG_DEBUG("Finish the consolidation");
-        while(!this->my_tree.Consolidate(neighbor_id, true, tw));
+        while (!this->my_tree.Consolidate(neighbor_id, true, tw))
+          ;
       }
       // Since there could be consolidating happening, seen_remove_delta is no
       // longer accessible!!!
@@ -2903,9 +2915,9 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
   //     cur_id = internal_pointer->GetChildId(key);
   //     try_consolidation = true;
   //     break;
-  KeyType split_key;
   bool split_delta_encountered = false;
   while (node_pointer != nullptr) {
+    KeyType split_key;
     // Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
     // simple_pointer = nullptr;
     // LOG_DEBUG("Type encountered is %s", node_pointer->Print_type());
@@ -3065,10 +3077,11 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
   }
   // LOG_DEBUG("returning count %lu...", count);
   if (node_pointer->type == LEAF_BW_NODE) {
-    LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
-        leaf_pointer = dynamic_cast<
-            LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
-            node_pointer);
+    // LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+    //     leaf_pointer = dynamic_cast<
+    //         LeafBWNode<KeyType, ValueType, KeyComparator,
+    //         KeyEqualityChecker>*>(
+    //         node_pointer);
     int key_count = 0;
     typename map<KeyType, int, KeyComparator>::iterator iter =
         key_counter.begin();
@@ -3077,10 +3090,10 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
         key_count++;
       }
     }
-    LOG_DEBUG(
-        "Get_size returns on the LeafBWNode case key count %d, kv_list size "
-        "%lu and node id %lu",
-        key_count, leaf_pointer->kv_list.size(), node_id);
+    // LOG_DEBUG(
+    //     "Get_size returns on the LeafBWNode case key count %d, kv_list size "
+    //     "%lu and node id %lu",
+    //     key_count, leaf_pointer->kv_list.size(), node_id);
     return key_count;
   }
   LOG_DEBUG(
@@ -3469,12 +3482,13 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                   KeyType requested_boundary_key, uint64_t new_node_id,
                   ThreadWrapper<KeyType, ValueType, KeyComparator,
                                 KeyEqualityChecker>* tw) {
-  bool ret_val = this->InternalInsert(requested_key, requested_boundary_key, new_node_id, tw);
-  if (!ret_val)
-  {
+  bool ret_val = this->InternalInsert(requested_key, requested_boundary_key,
+                                      new_node_id, tw);
+  if (!ret_val) {
     return false;
   }
-  while(!this->my_tree.Consolidate(this->id, true, tw));
+  while (!this->my_tree.Consolidate(this->id, true, tw))
+    ;
 
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* self_ =
       this->my_tree.table.Get(this->id);
@@ -3615,7 +3629,8 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
         if (neighbor_node_size == this->my_tree.max_node_size - 1) {
           // Tricky case, we consolidate because the node is about to underflow
           // LOG_DEBUG("Finish the consolidation");
-          while(this->my_tree.Consolidate(neighbor_id, true, tw));
+          while (this->my_tree.Consolidate(neighbor_id, true, tw))
+            ;
         }
         // Since there could be consolidating happening, seen_remove_delta is no
         // longer accessible!!!
@@ -3778,7 +3793,9 @@ void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Traverse() {
 //#if 0
 template <typename KeyType, typename ValueType, typename KeyComparator,
           typename KeyEqualityChecker>
-void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SanityCheck(uint64_t id, ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw) {
+void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SanityCheck(
+    uint64_t id,
+    ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw) {
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node =
       this->table.Get(id);
   if (node == nullptr) {
@@ -3786,174 +3803,202 @@ void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::SanityCheck(
   }
 
   bool violation = false;
-  switch(node->type) {
+  switch (node->type) {
     case (INTERNAL_BW_NODE): {
-                               /*
-                                * Internal nodes have to maintain the following rules:
-                                * - key_list should not overflow
-                                * - only the root is allowed to underflow
-                                * - chain length should not cross threshold
-                                * - only the root can have left and right siblings as 0
-                                * - if root has no keys, it is only allowed to have leftmost pointer
-                                */
-                               auto node_ = dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
-                                              KeyEqualityChecker>*>(node);
-                               if(root != id) {
-                                 if((node_->key_list.size() < min_node_size) || (node_->key_list.size() > max_node_size)) {
-                                   LOG_ERROR("Node size constaints violated for node %lu, type = %s. Current node size = %lu", node->id, node->Print_type(), node_->key_list.size());
-                                   violation = true;
-                                   break;
-                                 }
+      /*
+       * Internal nodes have to maintain the following rules:
+       * - key_list should not overflow
+       * - only the root is allowed to underflow
+       * - chain length should not cross threshold
+       * - only the root can have left and right siblings as 0
+       * - if root has no keys, it is only allowed to have leftmost pointer
+       */
+      auto node_ =
+          dynamic_cast<InternalBWNode<KeyType, ValueType, KeyComparator,
+                                      KeyEqualityChecker>*>(node);
+      if (root != id) {
+        if ((node_->key_list.size() < min_node_size) ||
+            (node_->key_list.size() > max_node_size)) {
+          LOG_ERROR(
+              "Node size constaints violated for node %lu, type = %s. Current "
+              "node size = %lu",
+              node->id, node->Print_type(), node_->key_list.size());
+          violation = true;
+          break;
+        }
 
-                                 if(node_->chain_len > policy) {
-                                   LOG_ERROR("Delta chain length constraints violated for node %lu, type = %s. Current delta chain length = %d", node->id, node->Print_type(), node_->chain_len);
-                                   violation = true;
-                                   break;
-                                 }
+        if (node_->chain_len > policy) {
+          LOG_ERROR(
+              "Delta chain length constraints violated for node %lu, type = "
+              "%s. Current delta chain length = %d",
+              node->id, node->Print_type(), node_->chain_len);
+          violation = true;
+          break;
+        }
 
-                                 if(!(node_->left_sibling && node_->right_sibling)) {
-                                   LOG_DEBUG("Non-root node %lu of type %s has invalid left and right siblings {%lu, %lu} respectively.", node->id, node->Print_type(), node_->left_sibling, node_->right_sibling);
-                                   violation = true;
-                                   break;
-                                 }
-                               } else {
-                                 if((node_->key_list.size() == 0) && (!node_->leftmost_pointer)) {
-                                   LOG_DEBUG("Root node %lu of type %s has 0 keys, but still no leftmost pointer.", node->id, node->Print_type());
-                                   violation = true;
-                                   break;
-                                 }
-                               }
+        if (!(node_->left_sibling && node_->right_sibling)) {
+          LOG_DEBUG(
+              "Non-root node %lu of type %s has invalid left and right "
+              "siblings {%lu, %lu} respectively.",
+              node->id, node->Print_type(), node_->left_sibling,
+              node_->right_sibling);
+          violation = true;
+          break;
+        }
+      } else {
+        if ((node_->key_list.size() == 0) && (!node_->leftmost_pointer)) {
+          LOG_DEBUG(
+              "Root node %lu of type %s has 0 keys, but still no leftmost "
+              "pointer.",
+              node->id, node->Print_type());
+          violation = true;
+          break;
+        }
+      }
 
-                               if (node_->leftmost_pointer) {
-                                 SanityCheck(node_->leftmost_pointer, tw);
-                               }
-                               auto it = node_->key_list.begin();
-                               for (; it != node_->key_list.end(); it++) {
-                                 SanityCheck(it->second, tw);
-                               }
-                             } break;
+      if (node_->leftmost_pointer) {
+        SanityCheck(node_->leftmost_pointer, tw);
+      }
+      auto it = node_->key_list.begin();
+      for (; it != node_->key_list.end(); it++) {
+        SanityCheck(it->second, tw);
+      }
+    } break;
     case (LEAF_BW_NODE): {
-                           /*
-                            * Leaf nodes have to maintain following rules:
-                            * - if chain len = 0, then unique_keys should not be overflow.
-                            * - if chain len = 0, then unique_keys should not underflow.
-                            * - chain length should not cross threshold
-                            */
-                           auto node_ = dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
-                                              KeyEqualityChecker>*>(node);
-                           auto it = node_->kv_list.begin();
-                           set<KeyType, KeyComparator> unique_keys(KeyComparator(this->metadata));
-                           for(; it != node_->kv_list.end(); it++) {
-                             unique_keys.insert(it->first);
-                           }
-                           if((node_->chain_len == 0) && ((unique_keys.size() < min_node_size) || (unique_keys.size() > max_node_size))) {
-                             LOG_ERROR("Node %lu of type %s has 0 chain length and violates node size constraints by having %lu unique keys.", node->id, node->Print_type(), unique_keys.size());
-                             violation = true;
-                             break;
-                           }
-                         } break;
+      /*
+       * Leaf nodes have to maintain following rules:
+       * - if chain len = 0, then unique_keys should not be overflow.
+       * - if chain len = 0, then unique_keys should not underflow.
+       * - chain length should not cross threshold
+       */
+      auto node_ = dynamic_cast<
+          LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>(
+          node);
+      auto it = node_->kv_list.begin();
+      set<KeyType, KeyComparator> unique_keys(KeyComparator(this->metadata));
+      for (; it != node_->kv_list.end(); it++) {
+        unique_keys.insert(it->first);
+      }
+      if ((node_->chain_len == 0) && ((unique_keys.size() < min_node_size) ||
+                                      (unique_keys.size() > max_node_size))) {
+        LOG_ERROR(
+            "Node %lu of type %s has 0 chain length and violates node size "
+            "constraints by having %lu unique keys.",
+            node->id, node->Print_type(), unique_keys.size());
+        violation = true;
+        break;
+      }
+    } break;
     case (INSERT): {
-                     /*
-                      * Insert delta has to maintain the following rules:
-                      * - next cannot point to null.
-                      */
-                     if(node->next == nullptr) {
-                       LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
-                       violation = true;
-                       break;
-                     }
-                     SanityCheck(node->next->id, tw);
-                   } break;
+      /*
+       * Insert delta has to maintain the following rules:
+       * - next cannot point to null.
+       */
+      if (node->next == nullptr) {
+        LOG_ERROR("Dangling delta for node %lu of type %s.", node->id,
+                  node->Print_type());
+        violation = true;
+        break;
+      }
+      SanityCheck(node->next->id, tw);
+    } break;
     case (UPDATE): {
-                     /*
-                      * Update delta has to maintain the following rules:
-                      * - next cannot point to null.
-                      */
-                     if(node->next == nullptr) {
-                       LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
-                       violation = true;
-                       break;
-                     }
-                     SanityCheck(node->next->id, tw);
-                   } break;
+      /*
+       * Update delta has to maintain the following rules:
+       * - next cannot point to null.
+       */
+      if (node->next == nullptr) {
+        LOG_ERROR("Dangling delta for node %lu of type %s.", node->id,
+                  node->Print_type());
+        violation = true;
+        break;
+      }
+      SanityCheck(node->next->id, tw);
+    } break;
     case (DELETE): {
-                     /*
-                      * Delete delta has to maintain the following rules:
-                      * - next cannot point to null.
-                      */
-                     if(node->next == nullptr) {
-                       LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
-                       violation = true;
-                       break;
-                     }
-                     SanityCheck(node->next->id, tw);
-                   } break;
+      /*
+       * Delete delta has to maintain the following rules:
+       * - next cannot point to null.
+       */
+      if (node->next == nullptr) {
+        LOG_ERROR("Dangling delta for node %lu of type %s.", node->id,
+                  node->Print_type());
+        violation = true;
+        break;
+      }
+      SanityCheck(node->next->id, tw);
+    } break;
     case (SPLIT): {
-                    /*
-                     * Split delta has to maintain the following rules:
-                     * - next cannot point to null.
-                     */
-                    if(node->next == nullptr) {
-                      LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
-                      violation = true;
-                      break;
-                    }
-                    SanityCheck(node->next->id, tw);
-                  } break;
+      /*
+       * Split delta has to maintain the following rules:
+       * - next cannot point to null.
+       */
+      if (node->next == nullptr) {
+        LOG_ERROR("Dangling delta for node %lu of type %s.", node->id,
+                  node->Print_type());
+        violation = true;
+        break;
+      }
+      SanityCheck(node->next->id, tw);
+    } break;
     case (MERGE): {
-                    /*
-                     * Merge delta has to maintain the following rules:
-                     * - next cannot point to null.
-                     */
-                    if(node->next == nullptr) {
-                      LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
-                      violation = true;
-                      break;
-                    }
-                    SanityCheck(node->next->id, tw);
-                  } break;
+      /*
+       * Merge delta has to maintain the following rules:
+       * - next cannot point to null.
+       */
+      if (node->next == nullptr) {
+        LOG_ERROR("Dangling delta for node %lu of type %s.", node->id,
+                  node->Print_type());
+        violation = true;
+        break;
+      }
+      SanityCheck(node->next->id, tw);
+    } break;
     case (REMOVE): {
-                     /*
-                      * Remove delta has to maintain the following rules:
-                      * - next cannot point to null.
-                      */
-                     if(node->next == nullptr) {
-                       LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
-                       violation = true;
-                       break;
-                     }
-                     SanityCheck(node->next->id, tw);
-                   } break;
+      /*
+       * Remove delta has to maintain the following rules:
+       * - next cannot point to null.
+       */
+      if (node->next == nullptr) {
+        LOG_ERROR("Dangling delta for node %lu of type %s.", node->id,
+                  node->Print_type());
+        violation = true;
+        break;
+      }
+      SanityCheck(node->next->id, tw);
+    } break;
     case (SPLIT_INDEX): {
-                          /*
-                           * Split index delta has to maintain the following rules:
-                           * - next cannot point to null.
-                           */
-                          if(node->next == nullptr) {
-                            LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
-                            violation = true;
-                            break;
-                          }
-                          SanityCheck(node->next->id, tw);
-                        } break;
+      /*
+       * Split index delta has to maintain the following rules:
+       * - next cannot point to null.
+       */
+      if (node->next == nullptr) {
+        LOG_ERROR("Dangling delta for node %lu of type %s.", node->id,
+                  node->Print_type());
+        violation = true;
+        break;
+      }
+      SanityCheck(node->next->id, tw);
+    } break;
     case (REMOVE_INDEX): {
-                           /*
-                            * Remove index delta has to maintain the following rules:
-                            * - next cannot point to null.
-                            */
-                           if(node->next == nullptr) {
-                             LOG_ERROR("Dangling delta for node %lu of type %s.", node->id, node->Print_type());
-                             violation = true;
-                             break;
-                           }
-                           SanityCheck(node->next->id, tw);
-                         } break;
+      /*
+       * Remove index delta has to maintain the following rules:
+       * - next cannot point to null.
+       */
+      if (node->next == nullptr) {
+        LOG_ERROR("Dangling delta for node %lu of type %s.", node->id,
+                  node->Print_type());
+        violation = true;
+        break;
+      }
+      SanityCheck(node->next->id, tw);
+    } break;
   }
 
-  if(violation && retry) {
+  if (violation && retry) {
     assert(0);
   }
-  if(violation) {
+  if (violation) {
     Consolidate(id, true, tw);
     SanityCheck(id, tw);
   } else {
@@ -4002,14 +4047,15 @@ void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Traverse(
       }
     } break;
     case (LEAF_BW_NODE): {
-      LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* node_ =
-          dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
-                                  KeyEqualityChecker>*>(node);
-      LOG_DEBUG(
-          "LEAF_BW_NODE: id = %lu, kv_list size = %lu | left_sibling = %lu, "
-          "right_sibling = %lu",
-          node->id, node_->kv_list.size(), node_->left_sibling,
-          node_->right_sibling);
+      // LeafBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
+      // node_ =
+      //     dynamic_cast<LeafBWNode<KeyType, ValueType, KeyComparator,
+      //                             KeyEqualityChecker>*>(node);
+      // LOG_DEBUG(
+      //     "LEAF_BW_NODE: id = %lu, kv_list size = %lu | left_sibling = %lu, "
+      //     "right_sibling = %lu",
+      //     node->id, node_->kv_list.size(), node_->left_sibling,
+      //     node_->right_sibling);
     } break;
     case (INSERT): {
       // LOG_DEBUG("INSERT: id = %lu", node->id);

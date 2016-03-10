@@ -2229,11 +2229,13 @@ class BWTree {
   bool InsertWrapper(KeyType key, ValueType value);
   bool Insert(
       KeyType key, ValueType value,
-      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw, bool* successful);
+      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw,
+      bool* successful);
   bool DeleteWrapper(KeyType key, ValueType value);
   bool Delete(
       KeyType key, ValueType value,
-      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw, bool* successful);
+      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw,
+      bool* successful);
   uint64_t Search(
       KeyType key, uint64_t* path, uint64_t& location,
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
@@ -2277,8 +2279,9 @@ class BWTree {
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
   void CleanupTreeIteratively(
       ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
-  void SanityCheck(uint64_t id, ThreadWrapper<KeyType, ValueType, KeyComparator,
-                                 KeyEqualityChecker>* tw);
+  void SanityCheck(
+      uint64_t id,
+      ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw);
 };
 
 template <typename KeyType, typename ValueType, typename KeyComparator,
@@ -2485,9 +2488,12 @@ class Epoch {
   uint64_t generation;
   uint64_t oldest_epoch;
   std::atomic<uint64_t> epoch_size;
-  //cuckoohash_map<uint64_t, std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> *> cleaning_map;
-  map<uint64_t, std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> *> cleaning_map;
-  //std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>
+  // cuckoohash_map<uint64_t, std::list<Node<KeyType, ValueType, KeyComparator,
+  // KeyEqualityChecker>*> *> cleaning_map;
+  map<uint64_t,
+      std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>*>
+      cleaning_map;
+  // std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>
   //    to_be_cleaned;  // FIXME: worry about concurrency in this data structure
   BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>& my_tree;
   std::atomic<uint64_t> ref_count;  // number of threads in epoch
@@ -2505,14 +2511,16 @@ class ThreadWrapper {
  public:
   Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* e;
   bool op_status;
-  std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> *to_be_cleaned;
+  std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>*
+      to_be_cleaned;
   std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>
       allocation_list;
   ThreadWrapper(
       Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* epoch) {
     this->e = epoch;
     this->op_status = false;
-    this->to_be_cleaned = new std::list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>;
+    this->to_be_cleaned = new std::list<
+        Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>;
   }
   ~ThreadWrapper() {
     /*
