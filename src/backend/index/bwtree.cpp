@@ -65,7 +65,8 @@ void Epoch<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::performGc() {
    * the nodes. The destructors of those nodes will take care of cleaning up
    * the necessary internal malloc'd objects.
    */
-  LOG_DEBUG("GARBAGE COLLECTING EPOCH %lu, CURRENT EPOCH IS %lu ", this->generation, this->my_tree.current_epoch->generation);
+  LOG_DEBUG("GARBAGE COLLECTING EPOCH %lu, CURRENT EPOCH IS %lu ",
+            this->generation, this->my_tree.current_epoch->generation);
 
   for (auto c_it = cleaning_map.begin(); c_it != cleaning_map.end(); c_it++) {
     auto c_list = c_it->second;
@@ -1014,7 +1015,6 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Delete(
     KeyType key, ValueType value,
     ThreadWrapper<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* tw,
     bool* successful) {
-
   uint64_t* path = (uint64_t*)malloc(sizeof(uint64_t) * tree_height);
   auto mem_len = (tree_height * sizeof(uint64_t));
   this->memory_usage += mem_len;
@@ -1577,7 +1577,6 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
                   uint64_t node_id,
                   ThreadWrapper<KeyType, ValueType, KeyComparator,
                                 KeyEqualityChecker>* tw) {
-
   if (index == 0) {
     // I am the root
     uint64_t root_size = this->my_tree.Get_size(this->id);
@@ -2847,10 +2846,9 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys(
      * and only iterate
      * through those values starting from the left.
      */
-    // TODO: may need to change Get_size approach if we don't consolidate
-    // before ScanAllKeys.
+
     LOG_DEBUG("Siblings: left = %lu, right = %lu\n", leaf_pointer->left_sibling,
-           leaf_pointer->right_sibling);
+              leaf_pointer->right_sibling);
     if (leaf_pointer->right_sibling)
       leaf_id = leaf_pointer->right_sibling;
     else
@@ -3121,7 +3119,6 @@ bool InternalBWNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
   remove_index->chain_len = chain_len + 1;
 
   if (!this->my_tree.comparator(this->key_list.begin()->first, merged_key)) {
-    // TODO should do CAS here
     this->leftmost_pointer = this->key_list.begin()->second;
   }
   return this->my_tree.table.Install(this->id, remove_index);
@@ -3411,7 +3408,6 @@ void BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Traverse(
     case (LEAF_BW_NODE): {
     } break;
     case (INSERT): {
-
     } break;
     default:
       break;

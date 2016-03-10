@@ -189,7 +189,8 @@ void DeleteTest(index::Index *index, VarlenPool *pool, size_t scale_factor) {
   }
 }
 
-void SimpleInsert(index::Index *index, VarlenPool *pool, size_t scale_factor __attribute__((unused))) {
+void SimpleInsert(index::Index *index, VarlenPool *pool,
+                  size_t scale_factor __attribute__((unused))) {
   std::unique_ptr<storage::Tuple> key0(new storage::Tuple(key_schema, true));
   std::unique_ptr<storage::Tuple> key1(new storage::Tuple(key_schema, true));
   std::unique_ptr<storage::Tuple> key2(new storage::Tuple(key_schema, true));
@@ -530,7 +531,8 @@ TEST(IndexTests, SimpleMultiThreadedTest) {
   // Parallel Test
   size_t num_threads = 20;
   size_t scale_factor = 1;
-  LaunchParallelTest(num_threads, SimpleInsert, index.get(), pool, scale_factor);
+  LaunchParallelTest(num_threads, SimpleInsert, index.get(), pool,
+                     scale_factor);
 
   locations = index->ScanAllKeys();
   EXPECT_EQ(locations.size(), 4 * num_threads);
