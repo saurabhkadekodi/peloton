@@ -227,7 +227,7 @@ void DeleteTest(index::Index *index, VarlenPool *pool, size_t scale_factor) {
     printf("\n########## DELETED 4 ############\n");
   }
 }
-#if 0
+//#if 0
 TEST(IndexTests, DeleteTest) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
   std::vector<ItemPointer> locations;
@@ -271,7 +271,7 @@ TEST(IndexTests, DeleteTest) {
 
   delete tuple_schema;
 }
-#endif
+//#endif
 
 void SimpleInsert(index::Index *index, VarlenPool *pool, size_t scale_factor __attribute__((unused))) {
   std::unique_ptr<storage::Tuple> key0(new storage::Tuple(key_schema, true));
@@ -312,7 +312,7 @@ void SimpleInsert(index::Index *index, VarlenPool *pool, size_t scale_factor __a
  * 13. Multithreaded insert test - already given (MultiThreadedInsertTest)
  */
 
-#if 0
+//#if 0
 TEST(IndexTests, BasicTest) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
   std::vector<ItemPointer> locations;
@@ -648,7 +648,7 @@ TEST(IndexTests, MultiThreadedInsertTest) {
 
   delete tuple_schema;
 }
-#endif
+//#endif
 //#if 0
 TEST(IndexTests, SimpleMultiThreadedTest) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();

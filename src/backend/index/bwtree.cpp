@@ -357,6 +357,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
   deque<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*> stack;
   // Collect delta chains
   Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>* temp = node_;
+  auto local_gc_list = new list<Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*>;
 
   bool encounter_split_delta = false;
   // bool encounter_merge_delta = false;
@@ -430,10 +431,12 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
           else
             it++;
         }
-        tw->to_be_cleaned->push_back(temp);
+        //tw->to_be_cleaned->push_back(temp);
+        local_gc_list->push_back(temp);
       } else if (temp->type == SPLIT) {
         // LOG_DEBUG("Bypass the split delta");
-        tw->to_be_cleaned->push_back(temp);
+        //tw->to_be_cleaned->push_back(temp);
+        local_gc_list->push_back(temp);
       } else if (temp->type == REMOVE) {
         // This node will be removed, the node it's merging to does GC
         // gc_new_base = true;
@@ -508,10 +511,12 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
               "@@@@@@ Adding node of type %s of ID %lu to be cleaned @@@@@@",
               clean_sibling->Print_type(), clean_sibling->id);
           clean_sibling_next = clean_sibling->next;
-          tw->to_be_cleaned->push_back(clean_sibling);
+          //tw->to_be_cleaned->push_back(clean_sibling);
+          local_gc_list->push_back(clean_sibling);
           clean_sibling = clean_sibling_next;
         }
-        tw->to_be_cleaned->push_back(temp);
+        //tw->to_be_cleaned->push_back(temp);
+        local_gc_list->push_back(temp);
 
         // GC the removed node
         // tw->to_be_cleaned->push_back(merged_node_pointer);
@@ -529,13 +534,20 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
           "New base size is %ld | left_sibling = %lu, right_sibling = %lu",
           new_base->kv_list.size(), new_base->left_sibling,
           new_base->right_sibling);
-      tw->allocation_list.push_back(new_base);
+      if(ret_val) {
+        tw->e->concatenate(local_gc_list);
+      } else {
+        // maybe a problem... not sure
+        tw->allocation_list.push_back(new_base);
+      }
     } else {
       // this->freelist.insert(new_base);
       tw->to_be_cleaned->push_back(new_base);
+      //local_gc_list->push_back(new_base);
     }
     // this->freelist.insert(base);
     tw->to_be_cleaned->push_back(base);
+    //local_gc_list->push_back(base);
     LOG_DEBUG("After Leaf Consolidation\n");
     Traverse(root);
     LOG_DEBUG("\n");
@@ -579,7 +591,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
           // LOG_DEBUG("Adding key to the new base for the internal node");
           new_base->key_list.insert(pair<KeyType, uint64_t>(
               split_pointer->split_key, split_pointer->new_split_node_id));
-          tw->to_be_cleaned->push_back(temp);
+          //tw->to_be_cleaned->push_back(temp);
+          local_gc_list->push_back(temp);
           break;
         }
         case (UPDATE): {
@@ -600,7 +613,8 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
             } else
               iter++;
           }
-          tw->to_be_cleaned->push_back(temp);
+          //tw->to_be_cleaned->push_back(temp);
+          local_gc_list->push_back(temp);
           break;
         }
         case (REMOVE_INDEX): {
@@ -639,11 +653,13 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
 
             // insert new id with its leftmost key
           }
-          tw->to_be_cleaned->push_back(temp);
+          //tw->to_be_cleaned->push_back(temp);
+          local_gc_list->push_back(temp);
           break;
         }
         case (SPLIT):
-          tw->to_be_cleaned->push_back(temp);
+          //tw->to_be_cleaned->push_back(temp);
+          local_gc_list->push_back(temp);
           break;
         case (REMOVE):
           // This node will be removed, the node it's merging to does GC
@@ -714,10 +730,13 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
                 "@@@@@@ Adding node of type %s of ID %lu to be cleaned @@@@@@",
                 clean_sibling->Print_type(), clean_sibling->id);
             clean_sibling_next = clean_sibling->next;
-            tw->to_be_cleaned->push_back(clean_sibling);
+            //tw->to_be_cleaned->push_back(clean_sibling);
+            local_gc_list->push_back(clean_sibling);
             clean_sibling = clean_sibling_next;
           }
-          tw->to_be_cleaned->push_back(temp);
+          //tw->to_be_cleaned->push_back(temp);
+          local_gc_list->push_back(temp);
+
 
           // tw->to_be_cleaned->push_back(merge_pointer->node_to_be_merged);
         }
@@ -730,7 +749,11 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
     if (!gc_new_base) {
       // LOG_DEBUG("######### installing id %lu", id);
       ret_val = this->table.Install(id, new_base);
-      tw->allocation_list.push_back(new_base);
+      if(ret_val) {
+        tw->e->concatenate(local_gc_list);
+      } else {
+        tw->allocation_list.push_back(new_base);
+      }
     } else {
       // this->freelist.insert(new_base);
       tw->to_be_cleaned->push_back(new_base);
