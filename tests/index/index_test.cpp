@@ -587,7 +587,7 @@ TEST(IndexTests, MultiThreadedInsertTest) {
   std::unique_ptr<index::Index> index(BuildIndex());
 
   // Parallel Test
-  size_t num_threads = 1;
+  size_t num_threads = 3;
   size_t scale_factor = 1;
   LaunchParallelTest(num_threads, InsertTest, index.get(), pool, scale_factor);
 

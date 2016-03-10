@@ -2915,9 +2915,10 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
   //     cur_id = internal_pointer->GetChildId(key);
   //     try_consolidation = true;
   //     break;
+  KeyType* dummy = nullptr;
   bool split_delta_encountered = false;
   while (node_pointer != nullptr) {
-    KeyType split_key;
+     KeyType split_key = *dummy;
     // Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
     // simple_pointer = nullptr;
     // LOG_DEBUG("Type encountered is %s", node_pointer->Print_type());
