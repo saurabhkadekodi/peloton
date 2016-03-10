@@ -28,37 +28,22 @@ BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTreeIndex(
                 value_equals, 10),
       equals(metadata),
       comparator(metadata) {
-  // Add your implementation here
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
 BWTreeIndex<KeyType, ValueType, KeyComparator,
             KeyEqualityChecker>::~BWTreeIndex() {
-  // Add your implementation here
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
 bool BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::
     InsertEntry(
-        // __attribute__((unused)) const storage::Tuple *key,
-        // __attribute__((unused)) const ItemPointer location) {
         const storage::Tuple *key, const ItemPointer location) {
   KeyType index_key;
   index_key.SetFromKey(key);
   return container.InsertWrapper(index_key, location);
-#if 0
-  auto e = container.current_epoch;
-  e->join();
-  KeyType index_key;
-  index_key.SetFromKey(key);
-  auto retval = container.Insert(index_key, location);
-  if(e->leave()) {
-    delete e;
-  }
-  return retval;
-#endif
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
@@ -69,18 +54,6 @@ bool BWTreeIndex<KeyType, ValueType, KeyComparator,
   KeyType index_key;
   index_key.SetFromKey(key);
   return container.DeleteWrapper(index_key, location);
-#if 0
-  auto e = container.current_epoch;
-  e->join();
-  KeyType index_key;
-  index_key.SetFromKey(key);
-  bool ret_val = container.Delete(index_key, location);
-  printf("index ret val is %d\n", ret_val);
-  if(e->leave()) {
-    delete e;
-  }
-  return ret_val;
-#endif
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
@@ -112,17 +85,6 @@ BWTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanKey(
   KeyType index_key;
   index_key.SetFromKey(key);
   return container.SearchKeyWrapper(index_key);
-#if 0
-  auto e = container.current_epoch;
-  e->join();
-  KeyType index_key;
-  index_key.SetFromKey(key);
-  vector<ItemPointer> result = container.Search_key(index_key);
-  if(e->leave()) {
-    delete e;
-  }
-  return result;
-#endif
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
