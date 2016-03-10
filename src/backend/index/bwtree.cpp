@@ -2915,10 +2915,9 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
   //     cur_id = internal_pointer->GetChildId(key);
   //     try_consolidation = true;
   //     break;
-  KeyType* dummy = nullptr;
+  KeyType* split_key = nullptr;
   bool split_delta_encountered = false;
   while (node_pointer != nullptr) {
-     KeyType split_key = *dummy;
     // Node<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
     // simple_pointer = nullptr;
     // LOG_DEBUG("Type encountered is %s", node_pointer->Print_type());
@@ -2966,7 +2965,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
             leaf_pointer->kv_list.begin();
         // LOG_DEBUG("Leaf node size = %lu", leaf_pointer->kv_list.size());
         for (; iter != leaf_pointer->kv_list.end(); iter++) {
-          if (split_delta_encountered && !comparator(iter->first, split_key))
+          if (split_delta_encountered && !comparator(iter->first, *split_key))
             continue;
           else {
             LOG_DEBUG("Adding one to count for the leaf");
@@ -2990,7 +2989,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
             split_pointer =
                 dynamic_cast<SplitDeltaNode<KeyType, ValueType, KeyComparator,
                                             KeyEqualityChecker>*>(node_pointer);
-        split_key = split_pointer->split_key;
+        split_key = &(split_pointer->split_key);
       } break;
       case (MERGE): {
         MergeDeltaNode<KeyType, ValueType, KeyComparator, KeyEqualityChecker>*
@@ -3013,7 +3012,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
               to_be_merged->kv_list.begin();
           // LOG_DEBUG("Leaf node size = %lu", leaf_pointer->kv_list.size());
           for (; iter != to_be_merged->kv_list.end(); iter++) {
-            if (split_delta_encountered && !comparator(iter->first, split_key))
+            if (split_delta_encountered && !comparator(iter->first, *split_key))
               continue;
             else {
               LOG_DEBUG("Adding one to count for the leaf");
@@ -3057,7 +3056,7 @@ uint64_t BWTree<KeyType, ValueType, KeyComparator,
         typename multimap<KeyType, uint64_t, KeyComparator>::iterator iter =
             internal_pointer->key_list.begin();
         for (; iter != internal_pointer->key_list.end(); iter++) {
-          if (split_delta_encountered && !comparator(iter->first, split_key))
+          if (split_delta_encountered && !comparator(iter->first, *split_key))
             continue;
           else {
             // LOG_DEBUG("Adding one to self in internal case");

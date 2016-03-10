@@ -342,14 +342,14 @@ TEST(IndexTests, BasicTest) {
   delete tuple_schema;
 }
 
-void SimpleInsert(index::Index *index, VarlenPool *pool, size_t scale_factor __attribute__((unused))) {
-  std::unique_ptr<storage::Tuple> key0(new storage::Tuple(key_schema, true));
+// void SimpleInsert(index::Index *index, VarlenPool *pool, size_t scale_factor __attribute__((unused))) {
+//   std::unique_ptr<storage::Tuple> key0(new storage::Tuple(key_schema, true));
 
-  key0->SetValue(0, ValueFactory::GetIntegerValue(0), pool);
+//   key0->SetValue(0, ValueFactory::GetIntegerValue(0), pool);
 
-  // INSERT
-  assert(index->InsertEntry(key0.get(), item0) == true);
-}
+//   // INSERT
+//   assert(index->InsertEntry(key0.get(), item0) == true);
+// }
 
 TEST(IndexTests, SimpleInsertSingleThreaded) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
@@ -649,6 +649,7 @@ TEST(IndexTests, MultiThreadedInsertTest) {
   delete tuple_schema;
 }
 #endif
+//#if 0
 TEST(IndexTests, SimpleMultiThreadedTest) {
   auto pool = TestingHarness::GetInstance().GetTestingPool();
   std::vector<ItemPointer> locations;
