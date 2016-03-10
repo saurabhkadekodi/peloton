@@ -2433,18 +2433,21 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanNode(
     } else {
       typename vector<ValueType>::iterator value_it = diff_iter->second.begin();
 
-      for (;value_it != diff_iter->second.end(); value_it++) {
-        typename vector<ValueType>::iterator bucket_second_it = (bucket->second).begin();
-        for (; bucket_second_it != (bucket->second).end();bucket_second_it++)
-        {
-          if (value_equals(*bucket_second_it, *value_it))
-          {
+      for (; value_it != diff_iter->second.end(); value_it++) {
+        while (true) {
+          typename vector<ValueType>::iterator bucket_second_it =
+              (bucket->second).begin();
+          for (; bucket_second_it != (bucket->second).end();
+               bucket_second_it++) {
+            if (value_equals(*bucket_second_it, *value_it)) {
+              break;
+            }
+          }
+          if (bucket_second_it != (bucket->second).end()) {
+            (bucket->second).erase(bucket_second_it);
+          } else {
             break;
           }
-        }
-        if (bucket_second_it != (bucket->second).end())
-        {
-          (bucket->second).erase(bucket_second_it);
         }
       }
     }
