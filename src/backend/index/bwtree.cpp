@@ -192,8 +192,8 @@ BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::BWTree(
       policy(policy) {
   bool unique_keys = metadata->unique_keys;
   allow_duplicates = (!unique_keys);
-  min_node_size = 2;
-  max_node_size = 4;
+  min_node_size = 4;
+  max_node_size = 8;
   tree_height = 1;
   root = table.GetNextId();
   memory_usage = 0;

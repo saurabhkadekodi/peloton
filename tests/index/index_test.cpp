@@ -658,7 +658,7 @@ TEST(IndexTests, SimpleMultiThreadedTest) {
   std::unique_ptr<index::Index> index(BuildIndex());
 
   // Parallel Test
-  size_t num_threads = 5;
+  size_t num_threads = 20;
   size_t scale_factor = 1;
   LaunchParallelTest(num_threads, SimpleInsert, index.get(), pool, scale_factor);
 
