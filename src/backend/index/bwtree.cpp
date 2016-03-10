@@ -488,6 +488,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
         tw->e->concatenate(local_gc_list);
       } else {
         tw->allocation_list.push_back(new_base);
+        delete local_gc_list;
       }
     } else {
       tw->to_be_cleaned->push_back(new_base);
@@ -673,6 +674,7 @@ bool BWTree<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Consolidate(
         tw->e->concatenate(local_gc_list);
       } else {
         tw->allocation_list.push_back(new_base);
+        delete local_gc_list;
       }
     } else {
       tw->to_be_cleaned->push_back(new_base);
